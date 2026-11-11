@@ -4,7 +4,9 @@
         <item name="android:windowBackground">@color/rx_bg</item>
         <item name="android:statusBarColor">@color/rx_bg</item>
         <item name="android:navigationBarColor">@color/rx_bg</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
     </style>
-    <color name="rx_bg">#FF0A0D0D</color>
+    <color name="rx_bg">#FFFEDFE1</color>
     <color name="rx_accent">#FF2FE0B0</color>
 </resources>

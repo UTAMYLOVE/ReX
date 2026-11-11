@@ -22,11 +22,12 @@ import io.github.xeno_hf.rex.res.oxanium_medium
 import io.github.xeno_hf.rex.res.oxanium_semibold
 
 /**
- * 配色三套：
- * - Emerald（預設，暗）：黑底＋白＋翡翠綠紋路，藍與金點綴
+ * 配色四套：
+ * - Nippon（預設，淺）：櫻粉底＋白卡片＋玫瑰粉主色，水色點綴，茶褐字
+ * - Emerald（暗）：黑底＋白＋翡翠綠紋路，藍與金點綴
  * - Ruby（暗）：緋紅＋金飾，翠綠點綴
  * - Topaz（淺）：象牙白＋金飾＋翠綠點綴，白天陽光下看得清
- * 三套都用翡翠綠當「正常／已連線」色。
+ * 暗色兩套與 Topaz 用翡翠綠當「正常／已連線」色；Nippon 用水色。
  */
 data class RxPalette(
     val id: String,
@@ -81,6 +82,23 @@ val Topaz = RxPalette(
     traces = listOf(Color(0xFF0E9F7E), Color(0xFF2F6FDB), Color(0xFFC98A00), Color(0xFFB03CC4), Color(0xFFD7263D), Color(0xFF5C9A0C)),
 )
 
+/**
+ * 六個基準色：#FEDFE1 櫻粉、#D7C4BB 淺褐、#DC9FB4 玫瑰粉、#FFFFFF 白、#A5DEE4 水色、#9E7A7A 茶褐。
+ * 這六色用在底、卡片、線、填色；文字與警示色是同色相壓深的版本（原色當字在白底上對比不夠，騎車時看不清）。
+ */
+val Nippon = RxPalette(
+    id = "nippon", light = true,
+    bg = Color(0xFFFEDFE1), bg2 = Color(0xFFFFFFFF),
+    card = Color(0xFFFFFFFF), cardHi = Color(0xFFFEDFE1),
+    line = Color(0xFFD7C4BB), track = Color(0xFFEFE4DE),
+    text = Color(0xFF4E3838), muted = Color(0xFF9E7A7A),
+    brand = Color(0xFFDC9FB4), brand2 = Color(0xFFA5DEE4), brandInk = Color(0xFFA8506F), onBrand = Color(0xFF4E3838),
+    partner = Color(0xFFA5DEE4),
+    accent = Color(0xFF2F8F9B),
+    warn = Color(0xFFB8741F), danger = Color(0xFFC93A52),
+    traces = listOf(Color(0xFF2F8F9B), Color(0xFFA8506F), Color(0xFF9E7A7A), Color(0xFFB8741F), Color(0xFF5F6FB5), Color(0xFF4F8A5C)),
+)
+
 val Emerald = RxPalette(
     id = "emerald", light = false,
     bg = Color(0xFF0A0C0D), bg2 = Color(0xFF0D1614),
@@ -96,7 +114,7 @@ val Emerald = RxPalette(
 
 /** 目前配色。讀取會訂閱 Compose 狀態，換主題時全部畫面自動重繪。 */
 object RxColors {
-    var palette by mutableStateOf(Emerald)
+    var palette by mutableStateOf(Nippon)
     val bg get() = palette.bg
     val bg2 get() = palette.bg2
     val card get() = palette.card
@@ -122,12 +140,12 @@ val Digits: FontFamily get() = DigitsHolder.family
 private object DigitsHolder { var family: FontFamily = FontFamily.Default }
 
 enum class ThemeChoice(val label: Int) {
-    EMERALD(R.string.theme_emerald), RUBY(R.string.theme_ruby), TOPAZ(R.string.theme_topaz), SYSTEM(R.string.theme_system);
+    NIPPON(R.string.theme_nippon), EMERALD(R.string.theme_emerald), RUBY(R.string.theme_ruby), TOPAZ(R.string.theme_topaz), SYSTEM(R.string.theme_system);
 
     companion object {
         /** 讀設定值。 */
         fun parse(s: String?): ThemeChoice = when (s) {
-            else -> entries.firstOrNull { it.name == s } ?: EMERALD
+            else -> entries.firstOrNull { it.name == s } ?: NIPPON
         }
     }
 }
@@ -135,10 +153,11 @@ enum class ThemeChoice(val label: Int) {
 @Composable
 fun RxTheme(choice: ThemeChoice, content: @Composable () -> Unit) {
     val p = when (choice) {
+        ThemeChoice.NIPPON -> Nippon
         ThemeChoice.EMERALD -> Emerald
         ThemeChoice.RUBY -> Ruby
         ThemeChoice.TOPAZ -> Topaz
-        ThemeChoice.SYSTEM -> if (isSystemInDarkTheme()) Emerald else Topaz
+        ThemeChoice.SYSTEM -> if (isSystemInDarkTheme()) Emerald else Nippon
     }
     RxColors.palette = p
     DigitsHolder.family = FontFamily(

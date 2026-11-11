@@ -47,6 +47,8 @@ fun RecordsScreen() {
     var confirmDelete by remember { mutableStateOf<SessionDir?>(null) }
     var confirmShare by remember { mutableStateOf<SessionDir?>(null) }
     val scope = rememberCoroutineScope()
+    var health by remember { mutableStateOf<SessionDir?>(null) }
+    health?.let { s -> HealthScreen(s) { health = null }; return }
 
     LaunchedEffect(refresh, rec) { list = withContext(Dispatchers.Default) { SessionDir.list(repo.sessionsRoot) } }
     // 開始錄製時新的一筆插在最上面；清單若停在原位，它會被擠到畫面外
@@ -86,6 +88,9 @@ fun RecordsScreen() {
                             stringResource(R.string.rec_marks, marks.joinToString(" · ") { "#${it.n} ${it.clock}" }),
                             color = RxColors.muted, fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
                         )
+                        if (rec?.dir != s.dir && io.github.xeno_hf.rex.Fs.size(kotlinx.io.files.Path(s.dir, "decoded.loga")) > 0) {
+                            Button(onClick = { health = s }, modifier = Modifier.padding(top = 4.dp)) { Text(stringResource(R.string.health_title)) }
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { confirmShare = s }) { Text(stringResource(R.string.rec_share_all)) }
                             TextButton(onClick = {

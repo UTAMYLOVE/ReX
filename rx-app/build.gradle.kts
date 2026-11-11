@@ -11,6 +11,8 @@ plugins {
 // Mac 上只建 iOS 時不需要 Android SDK：-Prx.iosOnly=true 就不套 Android 外掛
 val iosOnly = providers.gradleProperty("rx.iosOnly").isPresent
 if (!iosOnly) apply(plugin = "com.android.library")
+// 桌面預覽（開發用）：-Prx.preview 才加 JVM 目標，把畫面畫成 PNG，不用接手機也能看排版。平常建置不受影響。
+val preview = providers.gradleProperty("rx.preview").isPresent
 
 // 字串表：唯一正本是 app/src/main/res/values*/strings.xml（Android 清單／通知也用它）。
 // 這裡在建置時轉成 Kotlin 表，iOS 與共用畫面用同一份；語言由 App 自己依系統偏好挑（繁／簡要看文字系統，不只看地區）。
@@ -60,6 +62,7 @@ kotlin {
     if (!iosOnly) androidTarget {
         compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
+    if (preview) jvm("desktop") { compilerOptions.jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
     // iOS：整個共用層輸出成 RexKit.framework，給 rx-ios 的 Swift 進入點用
     listOf(iosArm64()).forEach {
         it.binaries.framework { baseName = "RexKit"; isStatic = false }
@@ -78,6 +81,7 @@ kotlin {
                 implementation("org.jetbrains.compose.material:material-icons-core:1.7.3")
             }
         }
+        if (preview) getByName("desktopMain").dependencies { implementation(compose.desktop.currentOs) }
         if (!iosOnly) androidMain.dependencies {
             implementation("androidx.activity:activity-compose:1.10.1")
             implementation("androidx.core:core-ktx:1.15.0")
@@ -99,4 +103,16 @@ compose.resources {
     publicResClass = false
     packageOfResClass = "io.github.xeno_hf.rex.res"
     generateResClass = always
+}
+
+if (preview) {
+    val desktop = extensions.getByType<org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension>().jvm("desktop").compilations.getByName("main")
+    tasks.register<JavaExec>("renderPreview") {
+        group = "rx"
+        description = "把引擎健檢頁畫成 PNG（build/preview）"
+        classpath = files(desktop.output.allOutputs, desktop.runtimeDependencyFiles)
+        mainClass.set("io.github.xeno_hf.rex.preview.RenderKt")
+        args(layout.buildDirectory.dir("preview").get().asFile.path)
+        systemProperty("java.awt.headless", "true")
+    }
 }
