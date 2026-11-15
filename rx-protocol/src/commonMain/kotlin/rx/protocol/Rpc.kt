@@ -89,10 +89,13 @@ class Rpc(val deviceType: Int = 1) {
     /** eBoost byte（a1230，0x34CE）寫回——只應由 Session 以「讀→翻 bit0→寫」呼叫。 */
     fun eBoostWrite(byteValue: Int): Frame = smallWrite(EBOOST_OPTION, 0, (byteValue and 0xFF).toLong(), 1)
 
+    /** 這個平台上 [fn] 對應的 SDO 物件（見 [DashTable]）。 */
+    fun dashIndex(fn: DashFn): Int = DashTable.index(deviceType, fn)
+
     /** 儀表多功能鈕寫入（1 byte）。值域照 XTune：EB 為讀改寫後的整個 byte，其餘 0/1。 */
     fun dashWrite(fn: DashFn, value: Int): Frame {
         if (fn != DashFn.EB) require(value in 0..1) { "${fn.name} only accepts 0/1" }
-        return smallWrite(fn.index, 0, (value and 0xFF).toLong(), 1)
+        return smallWrite(dashIndex(fn), 0, (value and 0xFF).toLong(), 1)
     }
 
     companion object {
@@ -116,6 +119,34 @@ enum class DashFn(val index: Int, val bit0: Boolean) {
     EB(0x34CE, true);
 
     companion object { fun ofIndex(i: Int) = entries.firstOrNull { it.index == i } }
+}
+
+/**
+ * 各平台的儀表鈕物件與已驗證平台。
+ *
+ * 六顆鈕在各平台用的物件相同：MAP 0x2003（1-3）、Pit 0x2004、LC 0x2005、TC a1067、EB a1230 bit0，
+ * 開關判斷跟 Mini X 一樣（值＝1 或 bit0）。
+ * 只有 AT 不同：Super XX 的自動學習開關是 a1500（D1Auto_Tune_Pro，X2 ControlFile C72 顯示這一格、不顯示 a14），
+ * 這個平台上的 a14 會跟著 a1500，直接寫 a14 不會生效；其他平台都是 a14。
+ * a1500 在 Super X Pro 是別的設定，只在 Super XX 用。
+ * Super X Pro (4-cyl) 與 SxS 尚未驗證，維持不放行。
+ */
+object DashTable {
+    /** a1500 D1Auto_Tune_Pro（0x3000+1500）。 */
+    const val AT_PRO = 0x35DC
+
+    val VERIFIED: Set<Int> = setOf(
+        EcuPlatform.MINI_X.node, EcuPlatform.SUPER_X.node, EcuPlatform.SUPER_X_PRO_RZR.node,
+        EcuPlatform.MINI_XX.node, EcuPlatform.SUPER_XX.node,
+    )
+
+    fun index(node: Int, fn: DashFn): Int = if (fn == DashFn.AT && node == EcuPlatform.SUPER_XX.node) AT_PRO else fn.index
+
+    /** [index] 在這個平台是哪顆鈕；不是儀表物件回 null（例如 Super XX 上的 a14）。 */
+    fun fnOf(node: Int, index: Int): DashFn? = DashFn.entries.firstOrNull { index(node, it) == index }
+
+    /** 這個平台的這個物件（MAP 或儀表鈕）是否已驗證可寫。 */
+    fun verified(node: Int, index: Int): Boolean = node in VERIFIED && (index == Rpc.MAP_SWITCH || fnOf(node, index) != null)
 }
 
 /** 解析 RPC（SDO）回應的粗分類。完整讀取流程見 [SdoUpload]。 */

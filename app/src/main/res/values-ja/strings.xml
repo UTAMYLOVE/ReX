@@ -109,6 +109,8 @@
     <string name="rec_recording">● 記録中</string>
     <string name="rec_mark">マーク</string>
     <string name="rec_mark_text">マーク %d</string>
+    <string name="rec_mark_short">マーク</string>
+    <string name="rec_marks">マーク：%s</string>
     <string name="rec_stop_recording">記録を停止</string>
     <string name="rec_list">記録（%d）</string>
     <string name="rec_unfinished">%.1f MB・正常に終了していません（データは保持）</string>
@@ -200,6 +202,7 @@
     <string name="ctl_error">%s：%s</string>
     <string name="ctl_not_connected">%s：未接続</string>
     <string name="ctl_demo">%s：体験モードでは ECU に送信しません</string>
+    <string name="ctl_unverified">%1$s：%2$s では未検証のため送信しません</string>
     <string name="at_confirm_title">Auto Tune をオンにしますか？</string>
     <string name="at_confirm_body">オンにすると、走行中に ECU が広帯域 O2 センサーのデータで燃料を自動補正します。オンにしますか？</string>
     <string name="at_confirm_ok">オンにする</string>

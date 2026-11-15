@@ -109,6 +109,8 @@
     <string name="rec_recording">● 录制中</string>
     <string name="rec_mark">打标记</string>
     <string name="rec_mark_text">标记 %d</string>
+    <string name="rec_mark_short">标记</string>
+    <string name="rec_marks">标记：%s</string>
     <string name="rec_stop_recording">停止录制</string>
     <string name="rec_list">录制记录（%d）</string>
     <string name="rec_unfinished">%.1f MB・没有正常结束，数据仍保留</string>
@@ -200,6 +202,7 @@
     <string name="ctl_error">%s：%s</string>
     <string name="ctl_not_connected">%s：尚未连接</string>
     <string name="ctl_demo">%s：体验模式不会发送到 ECU</string>
+    <string name="ctl_unverified">%1$s：%2$s 尚未验证，没有发送</string>
     <string name="at_confirm_title">开启 Auto Tune？</string>
     <string name="at_confirm_body">开启后 ECU 会根据宽域氧传感器的数据，在骑行中自动修正油量。确定要开启吗？</string>
     <string name="at_confirm_ok">开启</string>

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -28,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -39,6 +41,7 @@ import io.github.xeno_hf.rex.SessionDir
 fun RecordsScreen() {
     val repo = LocalRepo.current
     val rec by repo.recording.collectAsState()
+    val liveMarks by repo.liveMarks.collectAsState()
     var refresh by remember { mutableIntStateOf(0) }
     var list by remember { mutableStateOf<List<SessionDir>>(emptyList()) }
     var confirmDelete by remember { mutableStateOf<SessionDir?>(null) }
@@ -46,6 +49,9 @@ fun RecordsScreen() {
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(refresh, rec) { list = withContext(Dispatchers.Default) { SessionDir.list(repo.sessionsRoot) } }
+    // 開始錄製時新的一筆插在最上面；清單若停在原位，它會被擠到畫面外
+    val listState = rememberLazyListState()
+    LaunchedEffect(list.firstOrNull()?.dir?.name) { if (rec != null) listState.scrollToItem(0) }
 
     Column(Modifier.fillMaxSize().padding(12.dp)) {
         rec?.let { r ->
@@ -53,7 +59,7 @@ fun RecordsScreen() {
                 Column {
                     Text(stringResource(R.string.rec_recording), color = RxColors.danger, fontWeight = FontWeight.Bold)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { repo.mark(Strings.get(R.string.rec_mark_text, ++markCounter)) }) { Text(stringResource(R.string.rec_mark)) }
+                        OutlinedButton(onClick = { addMark(repo) }) { Text(stringResource(R.string.rec_mark)) }
                         Button(onClick = { repo.stopRecording(); refresh++ }) { Text(stringResource(R.string.rec_stop_recording)) }
                     }
                 }
@@ -62,7 +68,7 @@ fun RecordsScreen() {
         }
         Text(stringResource(R.string.rec_list, list.size), fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(6.dp))
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(list, key = { it.dir.name }) { s ->
                 Card(Modifier.fillMaxWidth()) {
                     Column {
@@ -74,6 +80,11 @@ fun RecordsScreen() {
                             else if (s.rounds != null) "${rx.protocol.Fmt.fixed(s.sizeBytes / 1e6, 1)} MB"
                             else stringResource(R.string.rec_unfinished, s.sizeBytes / 1e6),
                             color = if (live) RxColors.danger else if (s.rounds != null) RxColors.muted else RxColors.warn, fontSize = 12.sp,
+                        )
+                        val marks = if (live) liveMarks else s.marks
+                        if (marks.isNotEmpty()) Text(
+                            stringResource(R.string.rec_marks, marks.joinToString(" · ") { "#${it.n} ${it.clock}" }),
+                            color = RxColors.muted, fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             TextButton(onClick = { confirmShare = s }) { Text(stringResource(R.string.rec_share_all)) }
@@ -133,5 +144,3 @@ fun RecordsScreen() {
         )
     }
 }
-
-private var markCounter = 0

@@ -45,6 +45,7 @@ class ShareExportTest {
             onEvent(8, "SYN-AP SYN-ECU-SN private note")
             onEvent(8, "Handshake reply 3 frames: 6a2:d253594e2d534552 | 6a2:c211223344")
             onRound(1_000_000, longArrayOf(1500))
+            mark("SYN mark")
             onRound(63_000_000, longArrayOf(1600))
             close()
         }
@@ -101,6 +102,7 @@ class ShareExportTest {
             assertEquals(listOf(1500.0, 1600.0), loga.column("RPM").toList())
             assertEquals(listOf(42.5, 42.5), loga.column("Phone_GPS_Speed").toList())
             assertEquals(listOf(0.0, 0.0), loga.column("Phone_GPS_Latitude").toList())
+            assertEquals(listOf(0.0, 1.0), loga.column("Mark").toList()) // 標記欄不含識別資訊，公開分享照帶
 
             val meta = File(dst, "meta.json").readText()
             assertTrue("\"share_sanitized\": \"public\"" in meta)

@@ -99,6 +99,8 @@ class Repo(val platform: Platform) {
     val live = MutableStateFlow<Live?>(null)
     val target = MutableStateFlow<Target?>(null)
     val recording = MutableStateFlow<Recorder?>(null)
+    /** 正在錄的那筆到目前為止的標記（收檔後從 events.jsonl 讀）。 */
+    val liveMarks = MutableStateFlow<List<Recorder.Mark>>(emptyList())
     val events = MutableStateFlow<List<String>>(emptyList())
     /** 本次連線出現過的故障碼：名稱 → 首次出現時間。 */
     val malfSeen = MutableStateFlow<Map<String, Long>>(emptyMap())
@@ -265,7 +267,7 @@ class Repo(val platform: Platform) {
 
     /** 控制結果。UI 依 [outcome] 挑在地化字串，[label] 是功能名（AT、MAP 2…）。 */
     data class ControlMsg(val label: String, val outcome: Outcome, val detail: String? = null, val serial: Long = 0) {
-        enum class Outcome { ON, OFF, MAP_OK, NEEDS_LOGIN, NOT_LICENSED, REFUSED, ERROR, NOT_CONNECTED, DEMO }
+        enum class Outcome { ON, OFF, MAP_OK, NEEDS_LOGIN, NOT_LICENSED, REFUSED, ERROR, NOT_CONNECTED, DEMO, UNVERIFIED }
     }
     private var controlSerial = 0L
     /** 最近一次控制寫入結果，給 UI 顯示 toast（null＝沒有）。 */
@@ -300,6 +302,7 @@ class Repo(val platform: Platform) {
                         else -> emit(label, ControlMsg.Outcome.REFUSED, r.abort.toString())
                     }
                     is Session.WriteResult.Error -> emit(label, ControlMsg.Outcome.ERROR, r.reason)
+                    is Session.WriteResult.Unverified -> emit(label, ControlMsg.Outcome.UNVERIFIED, r.platform)
                 }
             } finally { controlBusy.value = false }
         }
@@ -580,6 +583,7 @@ class Repo(val platform: Platform) {
             nanoTime = platform::elapsedNanos, clockDomain = "platform.elapsedNanos")
         rec.onEvent(platform.elapsedNanos(), "Recording started: ${layout.table.entries.size} ch, ${layout.columns.size} columns")
         s.addListener(rec)
+        liveMarks.value = emptyList()
         recording.value = rec
         log("Recording -> ${dir.name}")
     }
@@ -601,13 +605,19 @@ class Repo(val platform: Platform) {
         rec.onEvent(platform.elapsedNanos(), "Recording stopped: ${rec.rounds} rounds")
         rec.close()
         recording.value = null
+        liveMarks.value = emptyList()
         log("Recording stopped: ${rec.rounds} rounds, ${rec.frames} frames")
     }
 
-    fun mark(text: String) {
-        recording.value?.mark(text)
-        uplink.value?.onEvent(platform.elapsedNanos(), "Mark: $text")
-        log("Mark: $text")
+    /** 錄製中打一個標記；[label] 拿到這筆錄製裡的編號（從 1 起）。沒在錄回 null。 */
+    fun mark(label: (Int) -> String): Recorder.Mark? {
+        val rec = recording.value ?: return null
+        val m = rec.mark(label) ?: return null
+        liveMarks.value = rec.marks
+        val text = "Mark: ${label(m.n)}"
+        uplink.value?.onEvent(platform.elapsedNanos(), text)
+        log(text)
+        return m
     }
 
     companion object {
@@ -649,17 +659,21 @@ class Repo(val platform: Platform) {
 }
 
 /** 已錄製的 session 夾。 */
-data class SessionDir(val dir: Path, val sizeBytes: Long, val rounds: Long?, val frames: Long?) {
+data class SessionDir(val dir: Path, val sizeBytes: Long, val rounds: Long?, val frames: Long?, val marks: List<Recorder.Mark> = emptyList()) {
     companion object {
         private val ROUNDS = Regex("\"rounds\": (\\d+)")
         private val FRAMES = Regex("\"frames\": (\\d+)")
+        private const val MAX_EVENTS_FOR_MARKS = 2L shl 20
         fun list(root: Path): List<SessionDir> = Fs.list(root).filter { Fs.isDir(it) }
             .sortedByDescending { it.name.substringAfter('_') } // 依時間（ECU_／DEMO_ 前綴不影響），最新在上
             .map { d ->
                 val metaFile = Path(d, "meta.json")
                 val meta = if (Fs.exists(metaFile)) Fs.readText(metaFile) else ""
+                // 事件檔通常只有幾十 KB；異常大的不為了列標記整檔讀進來
+                val events = Path(d, "events.jsonl")
+                val marks = if (Fs.size(events) in 1..MAX_EVENTS_FOR_MARKS) runCatching { Recorder.parseMarks(Fs.readText(events)) }.getOrDefault(emptyList()) else emptyList()
                 SessionDir(d, Fs.walkFiles(d).sumOf { Fs.size(it) },
-                    ROUNDS.find(meta)?.groupValues?.get(1)?.toLong(), FRAMES.find(meta)?.groupValues?.get(1)?.toLong())
+                    ROUNDS.find(meta)?.groupValues?.get(1)?.toLong(), FRAMES.find(meta)?.groupValues?.get(1)?.toLong(), marks)
             }
     }
 }

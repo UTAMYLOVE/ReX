@@ -21,6 +21,7 @@ import kotlin.concurrent.Volatile
  *      /events.jsonl    連線／重拉／使用者標記
  *      /decoded.loga    XTune 相容格式，原生速率（每一輪一列）
  * ```
+ * loga 最後一欄是 `Mark`（VarID [MARK_VAR_ID]）：到那一列為止打過幾個標記，值變大的那一列就是標記的位置。
  */
 class Recorder(
     val dir: Path,
@@ -37,6 +38,16 @@ class Recorder(
     /** 非 ECU 的欄位：每一輪呼叫 [value] 取當下值；null 寫 0（XTune 沒定位時也是 0）。 */
     class ExtraColumn(val varId: Int, val group: String, val name: String, val decimals: Int, val value: (LongArray) -> Double?)
 
+    /** 使用者標記。[n] 每筆錄製從 1 編號；[tMs] 在 loga 的 Time 軸上（第一幀起算的毫秒）。 */
+    class Mark(val n: Int, val tMs: Double) {
+        /** 3:42、1:03:42。 */
+        val clock: String get() {
+            val sec = (tMs / 1000).toLong().coerceAtLeast(0)
+            val mmss = "${sec / 60 % 60}:${(sec % 60).toString().padStart(2, '0')}"
+            return if (sec < 3600) mmss else "${sec / 3600}:${mmss.padStart(5, '0')}"
+        }
+    }
+
     init { SystemFileSystem.createDirectories(dir) }
     private val hashes = LinkedHashMap<String, HashingSink>()
     private fun open(name: String): Sink = HashingSink(SystemFileSystem.sink(Path(dir, name))).also { hashes[name] = it }.buffered()
@@ -51,6 +62,8 @@ class Recorder(
     @Volatile var rounds = 0L; private set
     @Volatile var closed = false; private set
     private val lock = SynchronizedObject()
+    private val marked = ArrayList<Mark>()
+    val marks: List<Mark> get() = synchronized(lock) { marked.toList() }
 
     init {
         writeLogaHeader()
@@ -66,11 +79,11 @@ class Recorder(
                 writeString("$k:${info[k] ?: ""}\n")
             }
             writeString("\n<VAR ID>\n")
-            writeString((listOf("-1") + cols.map { it.def.logVarId.toString() } + extras.map { it.varId.toString() }).joinToString(",") + "\n")
+            writeString((listOf("-1") + cols.map { it.def.logVarId.toString() } + extras.map { it.varId.toString() } + MARK_VAR_ID.toString()).joinToString(",") + "\n")
             writeString("<VAR GROUP>\n")
-            writeString((listOf("Stage_1") + cols.map { it.def.group.ifEmpty { "_" } } + extras.map { it.group }).joinToString(",") + "\n")
+            writeString((listOf("Stage_1") + cols.map { it.def.group.ifEmpty { "_" } } + extras.map { it.group } + MARK_GROUP).joinToString(",") + "\n")
             writeString("<VAR NAME>\n")
-            writeString((listOf("Time") + cols.map { it.def.name } + extras.map { it.name }).joinToString(",") + "\n")
+            writeString((listOf("Time") + cols.map { it.def.name } + extras.map { it.name } + MARK_NAME).joinToString(",") + "\n")
             writeString("<DATA START>\n")
         }
     }
@@ -91,6 +104,7 @@ class Recorder(
             sb.append(',').append(fmt(layout.value(c, raw), c.def.decimals))
         }
         for (e in extras) sb.append(',').append(fmt(e.value(raw) ?: 0.0, e.decimals))
+        sb.append(',').append(marked.size)
         loga.writeString(sb.append('\n').toString())
         rounds++
         // 約每秒落盤一次：程式被系統殺掉時最多丟 1 秒
@@ -102,7 +116,17 @@ class Recorder(
         events.writeString("{\"t_ns\":$tNanos,\"wall\":${wallClock()},\"text\":${jsonStr(text)}}\n")
     }
 
-    fun mark(text: String) = onEvent(nanoTime(), "Mark: $text")
+    /** 打一個標記；[label] 拿到編號、回傳要寫進事件的文字。已收檔回 null。 */
+    fun mark(label: (Int) -> String): Mark? = synchronized(lock) {
+        if (closed) return@synchronized null
+        val t = nanoTime()
+        val m = Mark(marked.size + 1, if (t0 < 0) 0.0 else ((t - t0) / 1_000_000.0).coerceAtLeast(0.0))
+        marked += m
+        events.writeString("{\"t_ns\":$t,\"wall\":${wallClock()},\"mark\":${m.n},\"t_ms\":${Fmt.fixed(m.tMs, 1)},\"text\":${jsonStr("Mark: ${label(m.n)}")}}\n")
+        m
+    }
+
+    fun mark(text: String): Mark? = mark { text }
 
     /** 收檔：把還在緩衝的寫完、關檔、寫 meta.json。花的時間跟錄了多久無關。 */
     fun close(): Unit = synchronized(lock) {
@@ -129,6 +153,30 @@ class Recorder(
     }
 
     companion object {
+        /** ReX 自己的欄位，XTune 沒用到這個 VarID。 */
+        const val MARK_VAR_ID = -9102
+        const val MARK_GROUP = "ReX"
+        const val MARK_NAME = "Mark"
+
+        /**
+         * 從 events.jsonl 的內容讀回標記（錄製清單用）。舊版寫的標記沒有編號與 t_ms：
+         * 依出現順序編號，時間用第一筆事件當起點估算。只認整行是合法 JSON 物件的事件：寫到一半斷掉、語法壞掉的行不算（[JsonLine]）。
+         */
+        fun parseMarks(events: String): List<Mark> {
+            var base = -1L
+            val out = ArrayList<Mark>()
+            for (raw in events.lineSequence()) {
+                val o = JsonLine.parseObject(raw) ?: continue
+                val t = (o["t_ns"] as? JsonLine.Num)?.text?.toLongOrNull() ?: continue
+                if (base < 0) base = t
+                if ((o["text"] as? String)?.startsWith("Mark: ") != true) continue
+                val n = (o["mark"] as? JsonLine.Num)?.text?.toIntOrNull() ?: (out.size + 1)
+                val ms = (o["t_ms"] as? JsonLine.Num)?.text?.toDoubleOrNull() ?: ((t - base) / 1_000_000.0)
+                out += Mark(n, ms)
+            }
+            return out
+        }
+
         fun fmt(v: Double, decimals: Int?): String {
             val d = (decimals ?: 3).coerceIn(0, 6)
             val s = Fmt.fixed(v, d)

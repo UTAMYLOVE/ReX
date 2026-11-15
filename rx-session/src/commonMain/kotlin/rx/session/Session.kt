@@ -403,22 +403,26 @@ class Session(
         data object Ack : WriteResult
         data class Aborted(val abort: Sdo.Abort) : WriteResult
         data class Error(val reason: String) : WriteResult
+        data class Unverified(val platform: String) : WriteResult
     }
 
     /** 切 MAP 檔位（1-3）。免登入。 */
     suspend fun setMap(mapNo: Int): WriteResult = rpcLock.withLock {
         if (transport == null) return@withLock WriteResult.Error("not connected")
+        unverifiedDash("MAP", Rpc.MAP_SWITCH)?.let { return@withLock it }
         sendWriteLocked(rpc.mapSwitch(mapNo)).also { event("MAP→$mapNo: ${it.describe()}") }
     }
 
     /**
      * 儀表多功能鈕（AT／Pit／LC／TC／EB）。一律**先讀現值、再決定寫什麼**，讀不到就不寫。
      * - AT：開關看 bit0；TC／Pit／LC：看值＝1。這四顆照 XTune 整 byte 寫 0/1。
+     * - 物件依平台而定（Super XX 的 AT 是 a1500），見 [rx.protocol.DashTable]。
      * [on]=null＝依 ECU 讀回的狀態反轉（不拿畫面上的即時通道推，避免狀態對不上時切反）。
      */
     suspend fun setDash(fn: DashFn, on: Boolean?): WriteResult = rpcLock.withLock {
         if (transport == null) return@withLock WriteResult.Error("not connected")
-        val cur = readObjectLocked(fn.index, 0, block = false).getOrElse { e ->
+        unverifiedDash(fn.name, rpc.dashIndex(fn))?.let { return@withLock it }
+        val cur = readObjectLocked(rpc.dashIndex(fn), 0, block = false).getOrElse { e ->
             val r = if (e is SdoAbortException) WriteResult.Aborted(e.abort) else WriteResult.Error("read before write failed: ${e.message}")
             event("${fn.name}: read refused, nothing written (${r.describe()})")
             return@withLock r
@@ -438,9 +442,18 @@ class Session(
         }
     }
 
-    /** 讀 ECU 上某顆儀表鈕目前是開或關（讀不到回 null）。 */
+    /** 平台未驗證就不讀也不寫，直接回 [WriteResult.Unverified]。 */
+    private fun unverifiedDash(what: String, index: Int): WriteResult? {
+        if (gate.dashVerified(index)) return null
+        val p = _platform.value?.label ?: "node 0x${node.hex(2)}"
+        event("$what: dashboard control not verified on $p, nothing sent")
+        return WriteResult.Unverified(p)
+    }
+
+    /** 讀 ECU 上某顆儀表鈕目前是開或關（讀不到、或平台未驗證回 null；未驗證時不送任何幀）。 */
     suspend fun readDash(fn: DashFn): Boolean? = rpcLock.withLock {
-        val b = readObjectLocked(fn.index, 0, block = false).getOrNull()?.first?.firstOrNull()?.toInt()?.and(0xFF) ?: return@withLock null
+        if (!gate.dashVerified(rpc.dashIndex(fn))) return@withLock null
+        val b = readObjectLocked(rpc.dashIndex(fn), 0, block = false).getOrNull()?.first?.firstOrNull()?.toInt()?.and(0xFF) ?: return@withLock null
         noteSwitch(fn, b)
         fn.isOn(b)
     }
@@ -449,6 +462,7 @@ class Session(
         WriteResult.Ack -> "ACK"
         is WriteResult.Aborted -> abort.toString()
         is WriteResult.Error -> "error: $reason"
+        is WriteResult.Unverified -> "not verified on $platform"
     }
 
     /** 送一個已過閘門的 expedited download，等 WriteAck(0x60) 或 Abort(0x80)。須在 rpcLock 內呼叫。 */
@@ -526,8 +540,13 @@ class Session(
             }
             _loggedIn.value = stats.lastLogin == "ok"
             event("Login: ${stats.lastLogin}")
-            // ECU 連登入都不回時寫表只會 78×3 次逾時（實車多卡約 70 s），直接判失敗交給重連邏輯
-            if (reply == null) return false
+            // ECU 連登入都不回時寫表只會 78×3 次逾時（實車多卡約 70 s），直接判失敗交給重連邏輯。
+            // 廣播要是早就在跑（重連後、握手途中已收到一輪），onRound 不會再設狀態，這裡不收尾就會卡在 Arming
+            //（2026-11-14 23:33 實車：畫面顯示「連線中」，資料照跑）。
+            if (reply == null) {
+                if (streaming) _state.value = SessionState.Streaming
+                return false
+            }
         }
         if (timing.sendNmtStart) { send(rpc.nmtStart()); delay(timing.stepMs) }
 
@@ -550,8 +569,8 @@ class Session(
         // 而 streaming 旗標已是 true 不會再設一次 → 畫面卡「連線中」但資料在跑。收到就明確收尾成 Streaming。
         if (got) { streaming = true; _state.value = SessionState.Streaming }
         // 讀不到（被拒、逾時）就保留同一條連線上次讀到的值；從沒讀到過的不在表裡，畫面自己退回看即時通道
-        if (got && _loggedIn.value) for (fn in dashSwitches) {
-            readObjectLocked(fn.index, 0, block = false, timeoutMs = 600).getOrNull()?.first?.firstOrNull()?.let { noteSwitch(fn, it.toInt() and 0xFF) }
+        if (got && _loggedIn.value) for (fn in dashSwitches) if (gate.dashVerified(rpc.dashIndex(fn))) {
+            readObjectLocked(rpc.dashIndex(fn), 0, block = false, timeoutMs = 600).getOrNull()?.first?.firstOrNull()?.let { noteSwitch(fn, it.toInt() and 0xFF) }
         }
         if (!got) {
             _state.value = SessionState.NoBroadcast(

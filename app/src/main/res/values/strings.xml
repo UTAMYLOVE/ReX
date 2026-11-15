@@ -121,6 +121,8 @@
     <string name="rec_recording">● Recording</string>
     <string name="rec_mark">Add mark</string>
     <string name="rec_mark_text">Mark %d</string>
+    <string name="rec_mark_short">Mark</string>
+    <string name="rec_marks">Marks: %s</string>
     <string name="rec_stop_recording">Stop recording</string>
     <string name="rec_list">Recordings (%d)</string>
     <string name="rec_unfinished">%.1f MB · Not closed properly, data kept</string>
@@ -217,6 +219,7 @@
     <string name="ctl_error">%s: %s</string>
     <string name="ctl_not_connected">%s: not connected</string>
     <string name="ctl_demo">%s: demo mode doesn\'t send to the ECU</string>
+    <string name="ctl_unverified">%1$s: not verified on %2$s yet, nothing sent</string>
     <string name="at_confirm_title">Turn on Auto Tune?</string>
     <string name="at_confirm_body">Auto Tune lets the ECU correct fueling from the wideband O2 sensor while you ride. Turn it on?</string>
     <string name="at_confirm_ok">Turn on</string>

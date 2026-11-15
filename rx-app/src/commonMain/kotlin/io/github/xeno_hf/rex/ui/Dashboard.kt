@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,11 +53,14 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import rx.defs.ChannelDef
+import rx.protocol.Fmt
 import rx.session.Recorder
 import io.github.xeno_hf.rex.Live
 
@@ -189,7 +193,12 @@ private fun rememberDash(): DashData {
     return DashData(live, if (useGps && gpsOn) repo.gps.fresh()?.speedKmh else null, if (gpsOn) repo.gps.fresh()?.speedKmh else null)
 }
 
-fun fmtVal(v: Double?, decimals: Int): String = v?.let { Recorder.fmt(it, decimals) } ?: "—"
+/** 儀表上的數值：小數位寫滿（6.0 不縮成 6），位數不隨值跳動；捨入成 0 的負值不帶負號。loga 用的 [Recorder.fmt] 才去尾端 0。 */
+fun fmtVal(v: Double?, decimals: Int): String {
+    if (v == null) return "—"
+    val s = Fmt.fixed(v, decimals.coerceIn(0, 6))
+    return if (s.startsWith("-") && s.none { it in '1'..'9' }) s.drop(1) else s
+}
 
 /** 數值顏色分級：0 正常、1 注意、2 警告（只放確定有意義的門檻）。 */
 fun levelOf(absid: Int, v: Double?): Int {
@@ -469,7 +478,8 @@ private fun SlopSlot(key: String, absid: Int, d: DashData, modifier: Modifier) {
         if (DerivedChannels.isPower(absid)) PowerBar(v, Modifier.weight(1f).height(10.dp))
         else SlopBar(fracOf(def, v), Modifier.weight(1f).fillMaxHeight(), slotTint(absid, d))
         Spacer(Modifier.width(10.dp))
-        Column(horizontalAlignment = Alignment.End) {
+        // 條寬＝格寬扣掉右邊這欄；欄寬跟著數字位數變的話，斜條會跟著伸縮（5.9 → 6 時整條往下掉）。
+        Column(Modifier.widthIn(min = slopReadoutWidth(absid, def)), horizontalAlignment = Alignment.End) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(fmtVal(v, def?.decimals ?: 1), style = digits(30.sp), color = if (DerivedChannels.isPower(absid)) powerColor(v) else levelColor(levelOf(absid, v)))
                 Spacer(Modifier.width(3.dp))
@@ -477,6 +487,26 @@ private fun SlopSlot(key: String, absid: Int, d: DashData, modifier: Modifier) {
             }
             Text(slotLabel(absid, def, d), color = slotInk(absid, d), fontSize = 15.sp, fontStyle = FontStyle.Italic, maxLines = 1)
         }
+    }
+}
+
+/** 斜條格右欄要預留的寬度：通道範圍兩端寫滿小數位的數字＋單位，和名稱（含 eBoost 狀態字）取寬的那個。 */
+@Composable
+private fun slopReadoutWidth(absid: Int, def: ChannelDef?): Dp {
+    val tm = rememberTextMeasurer(16)
+    val unitStyle = LocalTextStyle.current.copy(fontSize = 14.sp)
+    val labelStyle = LocalTextStyle.current.copy(fontSize = 15.sp, fontStyle = FontStyle.Italic)
+    val density = LocalDensity.current
+    return remember(absid, def, density, unitStyle, labelStyle) {
+        val dec = (def?.decimals ?: 1).coerceIn(0, 6)
+        val ends = listOfNotNull(def?.min, def?.max).filter { it > -Double.MAX_VALUE && it < Double.MAX_VALUE }
+        val widest = ends.map { Fmt.fixed(it, dec) }.maxByOrNull { it.length } ?: Fmt.fixed(0.0, dec)
+        // 數字字寬不一定等寬，各用 0／4／8 填一次取最寬。
+        val value = "048".maxOf { c -> tm.measure(widest.map { if (it.isDigit()) c else it }.joinToString(""), digits(30.sp)).size.width }
+        val unit = unitOf(def).takeIf { it.isNotEmpty() }?.let { tm.measure(it, unitStyle).size.width } ?: 0
+        val labels = listOf(def?.label ?: "#$absid") + if (absid == MGU_ENERGY) EbStatus.entries.map { it.label } else emptyList()
+        val label = labels.maxOf { tm.measure(it, labelStyle, maxLines = 1).size.width }
+        with(density) { maxOf(value + 3.dp.roundToPx() + unit, label).toDp() }
     }
 }
 

@@ -49,7 +49,7 @@ jobs:
           unzip -tq "$ipa"
           for bin in "$app/ReX" "$app/Frameworks/RexKit.framework/RexKit"; do
             [ "$(lipo -archs "$bin")" = arm64 ]
-            # Device build, not simulator.
+            # Device (iphoneos) build only.
             vtool -show-build "$bin" | grep -Eq 'platform (IOS|2)$'
           done
           shasum -a 256 "$ipa" | tee "$ipa.sha256"

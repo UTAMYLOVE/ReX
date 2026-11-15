@@ -7,6 +7,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import rx.protocol.CanId
 import rx.protocol.DashFn
+import rx.protocol.DashTable
 import rx.protocol.EcuPlatform
 import rx.protocol.Frame
 import rx.protocol.Rpc
@@ -28,14 +29,21 @@ class PlatformRoutingTest {
     }
 
     @Test fun eachNodeKeepsTheSameDashboardOnlyWriteBoundary() {
+        val verifiedPlatforms = setOf(EcuPlatform.MINI_X, EcuPlatform.SUPER_X, EcuPlatform.SUPER_X_PRO_RZR,
+            EcuPlatform.MINI_XX, EcuPlatform.SUPER_XX)
         for (p in EcuPlatform.entries) {
             val rpc = Rpc(p.node)
             val gate = WriteGate(p.node)
-            for (map in 1..3) assertTrue(gate.allows(rpc.mapSwitch(map)), p.label)
+            // 儀表鈕只放行已驗證的平台；沒驗過的平台連合法值也擋
+            val verified = p in verifiedPlatforms
+            for (map in 1..3) assertEquals(verified, gate.allows(rpc.mapSwitch(map)), p.label)
             for (fn in DashFn.entries) {
-                assertTrue(gate.allows(rpc.dashWrite(fn, 0)), "${p.label} $fn off")
-                assertTrue(gate.allows(rpc.dashWrite(fn, 1)), "${p.label} $fn on")
-                assertFalse(gate.allows(rpc.smallWrite(fn.index, 0, 1, 2)), "${p.label} $fn width")
+                val idx = rpc.dashIndex(fn)
+                assertEquals(verified, gate.dashVerified(idx), "${p.label} $fn")
+                assertEquals(verified, gate.allows(rpc.dashWrite(fn, 0)), "${p.label} $fn off")
+                assertEquals(verified, gate.allows(rpc.dashWrite(fn, 1)), "${p.label} $fn on")
+                assertFalse(gate.allows(rpc.smallWrite(idx, 0, 1, 2)), "${p.label} $fn width")
+                assertTrue(gate.allows(rpc.smallRead(idx)), "${p.label} $fn read")
             }
             assertFalse(gate.allows(rpc.smallWrite(Rpc.MAP_SWITCH, 0, 4, 1)))
             assertFalse(gate.allows(rpc.smallWrite(0x301D, 0, 1, 1)))
@@ -44,5 +52,22 @@ class PlatformRoutingTest {
             assertTrue(gate.allows(rpc.monitorStart()))
             assertTrue(gate.allows(rpc.monitorStop()))
         }
+    }
+
+    @Test fun autoTuneObjectFollowsThePlatform() {
+        // Super XX：AT 是 a1500（Auto_Tune_Pro）；舊的 a14 在這個平台不是儀表物件，寫入一律擋
+        val sxx = Rpc(EcuPlatform.SUPER_XX.node); val sxxGate = WriteGate(EcuPlatform.SUPER_XX.node)
+        assertEquals(DashTable.AT_PRO, sxx.dashIndex(DashFn.AT))
+        assertTrue(sxxGate.allows(sxx.dashWrite(DashFn.AT, 1)))
+        assertFalse(sxxGate.allows(sxx.smallWrite(DashFn.AT.index, 0, 1, 1)))
+        // 其他平台：AT 是 a14；a1500 在那些平台是別的設定，寫入一律擋
+        for (p in EcuPlatform.entries) if (p != EcuPlatform.SUPER_XX) {
+            val rpc = Rpc(p.node)
+            assertEquals(DashFn.AT.index, rpc.dashIndex(DashFn.AT), p.label)
+            assertFalse(WriteGate(p.node).allows(rpc.smallWrite(DashTable.AT_PRO, 0, 1, 1)), p.label)
+        }
+        // 其餘五顆每個平台都一樣
+        for (p in EcuPlatform.entries) for (fn in DashFn.entries) if (fn != DashFn.AT)
+            assertEquals(fn.index, Rpc(p.node).dashIndex(fn), "${p.label} $fn")
     }
 }

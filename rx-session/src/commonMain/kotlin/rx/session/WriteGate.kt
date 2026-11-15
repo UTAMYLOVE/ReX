@@ -3,6 +3,7 @@ package rx.session
 import rx.protocol.hex
 import rx.protocol.CanId
 import rx.protocol.DashFn
+import rx.protocol.DashTable
 import rx.protocol.Frame
 import rx.protocol.Rpc
 import rx.protocol.Sdo
@@ -16,6 +17,12 @@ import rx.protocol.Sdo
 class WriteGate(private val deviceType: Int, initialRefusals: Long = 0) {
     class Refused(msg: String) : RuntimeException(msg)
 
+    /**
+     * 儀表鈕寫入（MAP／AT／Pit／LC／TC／EB）只放行已逐平台驗證的「平台×物件」，見 [DashTable]。
+     * [what] 是 [Rpc.MAP_SWITCH] 或該平台的 [Rpc.dashIndex]。
+     */
+    fun dashVerified(what: Int): Boolean = DashTable.verified(deviceType, what)
+
     var refusals = initialRefusals; private set
 
     fun check(f: Frame) {
@@ -24,6 +31,8 @@ class WriteGate(private val deviceType: Int, initialRefusals: Long = 0) {
     }
 
     fun allows(f: Frame): Boolean = reason(f) == null
+
+    private fun dash(addr: Int): DashFn? = DashTable.fnOf(deviceType, addr)
 
     private fun reason(f: Frame): String? {
         val d = f.data
@@ -35,18 +44,22 @@ class WriteGate(private val deviceType: Int, initialRefusals: Long = 0) {
                 val b0 = u(0)
                 val addr = if (f.dlc >= 3) u(1) or (u(2) shl 8) else -1
                 val sub = if (f.dlc >= 4) u(3) else -1
-                when (Sdo.ccs(b0).let { if (it == 0) Sdo.CCS_DOWNLOAD else it }) {
+                // 寫入只收標準 expedited download（0x2X，bit4＝0、e＝1、s＝1）；RX 自 0.3.2 起與 XTune 同送這種。
+                when (Sdo.ccs(b0)) {
                     Sdo.CCS_DOWNLOAD -> when {
-                        b0 and 0x03 != 0x03 || f.dlc != 8 -> "only expedited writes allowed"
+                        b0 and 0xF3 != 0x23 || f.dlc != 8 -> "only expedited writes allowed"
                         addr == Rpc.MON_ADDR && sub == Rpc.MON_SUB -> null
                         addr == Rpc.CHAN_TABLE_ADDR -> null
                         // 儀表運行期控制：**只有儀表上的功能**，就算登入也不開放其他校正。
+                        // 物件依平台而定（見 rx.protocol.DashTable），全部 1 byte、sub 0。
+                        (addr == Rpc.MAP_SWITCH || dash(addr) != null) && !dashVerified(addr) ->
+                            "dashboard control 0x${addr.hex(4)} not verified on node 0x${deviceType.hex(2)} firmware"
                         sub == 0 && (4 - ((b0 ushr 2) and 3)) == 1 && addr == Rpc.MAP_SWITCH -> if (u(4) in 1..3) null else "MAP must be 1-3"
                         // EB 是位元欄位，閘門無法驗前值；只讀改寫 bit0 的紀律由 Session.setDash 保證，這裡只放行物件與寬度。
-                        sub == 0 && (4 - ((b0 ushr 2) and 3)) == 1 && addr == DashFn.EB.index -> null
+                        sub == 0 && (4 - ((b0 ushr 2) and 3)) == 1 && dash(addr) == DashFn.EB -> null
                         // AT／Pit／LC／TC：XTune 只寫 0/1
-                        sub == 0 && (4 - ((b0 ushr 2) and 3)) == 1 && DashFn.ofIndex(addr) != null ->
-                            if (u(4) in 0..1) null else "${DashFn.ofIndex(addr)!!.name} must be 0/1"
+                        sub == 0 && (4 - ((b0 ushr 2) and 3)) == 1 && dash(addr) != null ->
+                            if (u(4) in 0..1) null else "${dash(addr)!!.name} must be 0/1"
                         else -> "write to 0x${addr.hex(4)}/$sub not allowed"
                     }
                     Sdo.CCS_UPLOAD_INIT -> if (b0 == 0x40) null else "bad upload command 0x${b0.hex(2)}"

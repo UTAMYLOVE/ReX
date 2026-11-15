@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -131,6 +132,7 @@ private fun controlText(m: Repo.ControlMsg): String = when (m.outcome) {
     Repo.ControlMsg.Outcome.ERROR -> Strings.get(R.string.ctl_error, m.label, m.detail ?: "")
     Repo.ControlMsg.Outcome.NOT_CONNECTED -> Strings.get(R.string.ctl_not_connected, m.label)
     Repo.ControlMsg.Outcome.DEMO -> Strings.get(R.string.ctl_demo, m.label)
+    Repo.ControlMsg.Outcome.UNVERIFIED -> Strings.get(R.string.ctl_unverified, m.label, m.detail ?: "")
 }
 
 @Composable
@@ -186,6 +188,7 @@ fun RxRoot(startTab: String? = null) {
         // 橫向：左側窄導覽欄（狀態燈＋頁籤），錄製／連線放在內容頂列右側，儀表吃滿其餘空間
         val actions: @Composable () -> Unit = {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                if (state == SessionState.Streaming && rec != null) { MarkButton { addMark(repo) }; Spacer(Modifier.width(8.dp)) }
                 if (state == SessionState.Streaming) RecButton(recording = rec != null, compact = true, onClick = onRec)
                 Spacer(Modifier.width(8.dp))
                 SmallPill(stringResource(if (target == null) R.string.connect else R.string.disconnect), if (target == null) RxColors.brandInk else RxColors.muted) {
@@ -228,6 +231,7 @@ fun RxRoot(startTab: String? = null) {
                             }
                         },
                         actions = {
+                            if (state == SessionState.Streaming && rec != null) { MarkButton { addMark(repo) }; Spacer(Modifier.width(8.dp)) }
                             if (state == SessionState.Streaming) RecButton(recording = rec != null, onClick = onRec)
                             if (target == null) {
                                 Button(onClick = { showConnect = true }) { Text(stringResource(R.string.connect)) }
@@ -357,6 +361,27 @@ private fun StatusBadge(state: SessionState, target: Target?, compact: Boolean =
                 if (target is Target.Demo) Text(stringResource(R.string.demo_mode), fontSize = 10.sp, color = RxColors.muted)
             }
         }
+    }
+}
+
+/** 打一個標記並提示編號與時間（頂列與紀錄頁共用）。 */
+internal fun addMark(repo: Repo) {
+    val m = repo.mark { Strings.get(R.string.rec_mark_text, it) } ?: return
+    Toasts.show("${Strings.get(R.string.rec_mark_text, m.n)} · ${m.clock}")
+}
+
+/** 錄製中才出現，放在錄製鈕旁邊：每一頁都按得到，不用切到紀錄頁。 */
+@Composable
+private fun MarkButton(onClick: () -> Unit) {
+    Row(
+        Modifier.clip(RoundedCornerShape(16.dp)).background(RxColors.card)
+            .border(1.dp, RxColors.muted.copy(alpha = 0.5f), RoundedCornerShape(16.dp)).clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.Place, null, tint = RxColors.text, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(stringResource(R.string.rec_mark_short), color = RxColors.text, fontSize = 13.sp, maxLines = 1)
     }
 }
 
