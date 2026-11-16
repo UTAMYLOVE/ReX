@@ -253,9 +253,8 @@ object EngineHealth {
         }
 
         // ── 故障碼 ──
-        val malfCols = loga.names.withIndex().filter { (_, name) ->
-            name.contains("Malf") && name.contains('.') && !name.startsWith("Malf8.") && !name.contains(".bit", ignoreCase = true)
-        }
+        // 跟故障碼頁用同一個判斷：Malf 族位元裡名稱是故障碼的才算，狀態旗標與沒名字的 bitN 不算
+        val malfCols = loga.names.withIndex().filter { (_, name) -> DecodedLayout.isFaultCode(name) }
         if (malfCols.isNotEmpty()) {
             checked += Area.FAULTS
             val seen = malfCols.filter { (j, _) -> loga.rows.any { it[j] > 0.5 } }.map { it.value.substringAfter('.') }.distinct()
