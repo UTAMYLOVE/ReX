@@ -11,11 +11,12 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "io.github.xeno_hf.rex"
+        // UTAMYLOVE 分支：套件名稱和原版不同，可以和官方 ReX 同時安裝
+        applicationId = "io.github.utamylove.rex"
         minSdk = 29
         targetSdk = 35
         versionCode = 20
-        versionName = "0.6.5"
+        versionName = "0.6.5-sakura.1"
     }
 
     // 正式簽章：只從本機 ~/.config/rx/release.properties 讀，不入庫；沒有就用 debug 簽
@@ -56,7 +57,7 @@ android {
     }
 
     packaging {
-        resources.excludes += setOf("META-INF/AL2.0", "META-INF/LGPL2.1", "META-INF/*.kotlin_module")
+        resources.excludes += setOf("META-INF/AL2.0", "META-INF/LGPL2.1", "META-INF/*.kotlin_module", "META-INF/DEPENDENCIES", "META-INF/INDEX.LIST", "META-INF/versions/9/OSGI-INF/MANIFEST.MF", "META-INF/LICENSE*", "META-INF/NOTICE*")
     }
 
 }
@@ -80,5 +81,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+    // AI 解讀：Anthropic 官方 Java SDK
+    implementation("com.anthropic:anthropic-java:3.3.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

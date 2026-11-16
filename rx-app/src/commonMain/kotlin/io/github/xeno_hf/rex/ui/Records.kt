@@ -68,9 +68,9 @@ fun RecordsScreen() {
             }
             Spacer(Modifier.height(10.dp))
         }
-        Text(stringResource(R.string.rec_list, list.size), fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(6.dp))
         LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            item(key = "trend") { HealthTrend { d -> health = SessionDir(d, 0, null, null) } }
+            item(key = "title") { Text(stringResource(R.string.rec_list, list.size), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp)) }
             items(list, key = { it.dir.name }) { s ->
                 Card(Modifier.fillMaxWidth()) {
                     Column {

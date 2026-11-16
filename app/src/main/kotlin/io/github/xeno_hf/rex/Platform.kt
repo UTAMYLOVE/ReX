@@ -280,6 +280,29 @@ class AndroidPlatform(private val app: Context) : Platform {
         app.startActivity(android.content.Intent.createChooser(send, title).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
+    // ---------------- 提醒、AI、懸浮小儀表 ----------------
+    override fun alert(id: Int, title: String, text: String, vibrate: Boolean) {
+        val nm = app.getSystemService(android.app.NotificationManager::class.java)
+        val pi = android.app.PendingIntent.getActivity(app, id, android.content.Intent(app, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP), android.app.PendingIntent.FLAG_IMMUTABLE)
+        val n = androidx.core.app.NotificationCompat.Builder(app, RxApp.ALERT_CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_rex).setContentTitle(title).setContentText(text)
+            .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(text))
+            .setAutoCancel(true).setContentIntent(pi).build()
+        runCatching { nm.notify(id, n) }
+        if (vibrate) runCatching {
+            val v = if (android.os.Build.VERSION.SDK_INT >= 31) app.getSystemService(android.os.VibratorManager::class.java).defaultVibrator
+            else @Suppress("DEPRECATION") app.getSystemService(android.os.Vibrator::class.java)
+            v.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 250, 120, 250, 120, 400), -1))
+        }
+    }
+
+    override val ai: AiClient = AndroidAi()
+
+    var overlay: OverlayController? = null
+    override val supportsOverlay = true
+    override fun overlayPermitted() = android.provider.Settings.canDrawOverlays(app)
+    override fun requestOverlayPermission() { overlay?.requestPermission() }
+
     override fun unzipFirst(zip: ByteArray, nameFilter: (String) -> Boolean): Pair<String, ByteArray>? {
         return rx.session.unzipImport(zip, nameFilter)
     }

@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -85,7 +86,8 @@ import io.github.xeno_hf.rex.Repo
 import io.github.xeno_hf.rex.Target
 
 private enum class Tab(val label: Int, val icon: ImageVector) {
-    Dash(R.string.tab_dash, Icons.Filled.Home),
+    Monitor(R.string.tab_monitor, Icons.Filled.Home),
+    Dash(R.string.tab_dash, Icons.Filled.PlayArrow),
     Scope(R.string.tab_scope, Icons.Filled.DateRange),
     Channels(R.string.tab_channels, Icons.AutoMirrored.Filled.List),
     Records(R.string.tab_records, Icons.Filled.Star),
@@ -133,6 +135,7 @@ private fun controlText(m: Repo.ControlMsg): String = when (m.outcome) {
     Repo.ControlMsg.Outcome.NOT_CONNECTED -> Strings.get(R.string.ctl_not_connected, m.label)
     Repo.ControlMsg.Outcome.DEMO -> Strings.get(R.string.ctl_demo, m.label)
     Repo.ControlMsg.Outcome.UNVERIFIED -> Strings.get(R.string.ctl_unverified, m.label, m.detail ?: "")
+    Repo.ControlMsg.Outcome.LOCKED -> Strings.get(R.string.ctl_locked, m.label)
 }
 
 @Composable
@@ -157,10 +160,12 @@ fun RxRoot(startTab: String? = null) {
     val state by repo.state.collectAsState()
     val rec by repo.recording.collectAsState()
     val target by repo.target.collectAsState()
-    var tab by rememberSaveable { mutableStateOf(Tab.entries.firstOrNull { it.name.equals(startTab, ignoreCase = true) } ?: Tab.Dash) }
+    var tab by rememberSaveable { mutableStateOf(Tab.entries.firstOrNull { it.name.equals(startTab, ignoreCase = true) } ?: Tab.Monitor) }
     var showConnect by remember { mutableStateOf(false) }
 
     LaunchedEffect(target) { repo.platform.keepScreenOn(target != null && repo.keepScreenOn) }
+    // 開 App 自動連上次的 ECU；騎乘健檢清單也在這時讀進來
+    LaunchedEffect(registry != null) { if (registry != null) { repo.autoConnectOnce(); repo.loadHealthHistory() } }
 
     val loadingDefs by repo.registryLoading.collectAsState()
     if (registry == null) {
@@ -172,6 +177,7 @@ fun RxRoot(startTab: String? = null) {
 
     val content: @Composable () -> Unit = {
         when (tab) {
+            Tab.Monitor -> MonitorScreen()
             Tab.Dash -> DashboardScreen()
             Tab.Scope -> ScopeScreen()
             Tab.Channels -> ChannelsScreen()
@@ -211,7 +217,7 @@ fun RxRoot(startTab: String? = null) {
             }
             CompositionLocalProvider(LocalBarActions provides actions) {
                 Column(Modifier.weight(1f).fillMaxSize()) {
-                    if (tab != Tab.Dash) Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)) { Spacer(Modifier.weight(1f)); actions() }
+                    if (tab != Tab.Dash && tab != Tab.Monitor) Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)) { Spacer(Modifier.weight(1f)); actions() }
                     Box(Modifier.weight(1f).fillMaxWidth()) { content() }
                 }
             }

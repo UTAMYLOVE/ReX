@@ -1,5 +1,7 @@
 # ReX
 
+> **UTAMYLOVE 分支**：在原版 ReX 0.6.5 上加了監控主畫面（三種風格可切換）、懸浮小儀表、油圖跳動警示、騎完自動引擎健檢與趨勢、AI 解讀（Claude／DeepSeek）、六色櫻色主題。套件名稱 `io.github.utamylove.rex`，可以和官方 ReX 同時安裝。只讀監控的原則不變：調校寫入全部擋下。
+
 繁體中文 | [English](README.en.md)
 
 aRacer RC X 系列 ECU 的 Android／iOS 即時儀表與資料記錄 App。

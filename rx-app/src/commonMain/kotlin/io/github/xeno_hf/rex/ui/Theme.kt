@@ -99,6 +99,23 @@ val Nippon = RxPalette(
     traces = listOf(Color(0xFF2F8F9B), Color(0xFFA8506F), Color(0xFF9E7A7A), Color(0xFFB8741F), Color(0xFF5F6FB5), Color(0xFF4F8A5C)),
 )
 
+/**
+ * 夜櫻（暗）：Nippon 的夜間版。底色是茶褐色壓到接近黑，文字用櫻粉、米色，強調色玫瑰與水色；
+ * 和監控畫面的夜間錶盤同一組顏色。
+ */
+val Yozakura = RxPalette(
+    id = "yozakura", light = false,
+    bg = Color(0xFF120D0E), bg2 = Color(0xFF181112),
+    card = Color(0xFF1B1415), cardHi = Color(0xFF241B1D),
+    line = Color(0xFF3A2C2E), track = Color(0xFF2A1F21),
+    text = Color(0xFFFEDFE1), muted = Color(0xFFB79C9A),
+    brand = Color(0xFFDC9FB4), brand2 = Color(0xFFA5DEE4), brandInk = Color(0xFFDC9FB4), onBrand = Color(0xFF120D0E),
+    partner = Color(0xFFA5DEE4),
+    accent = Color(0xFFA5DEE4),
+    warn = Color(0xFFDC9FB4), danger = Color(0xFFFF4D6D),
+    traces = listOf(Color(0xFFA5DEE4), Color(0xFFDC9FB4), Color(0xFFFEDFE1), Color(0xFFD7C4BB), Color(0xFFFF4D6D), Color(0xFF9E7A7A)),
+)
+
 val Emerald = RxPalette(
     id = "emerald", light = false,
     bg = Color(0xFF0A0C0D), bg2 = Color(0xFF0D1614),
@@ -139,13 +156,25 @@ val Digits: FontFamily get() = DigitsHolder.family
 
 private object DigitsHolder { var family: FontFamily = FontFamily.Default }
 
+/** 只載入儀表數字字型（懸浮小儀表用：它不在 App 畫面裡，不套整個主題）。 */
+@Composable
+fun InstrumentFonts(content: @Composable () -> Unit) {
+    DigitsHolder.family = FontFamily(
+        Font(Res.font.oxanium_medium, FontWeight.Medium),
+        Font(Res.font.oxanium_semibold, FontWeight.SemiBold),
+        Font(Res.font.oxanium_bold, FontWeight.Bold),
+        Font(Res.font.oxanium_extrabold, FontWeight.ExtraBold),
+    )
+    content()
+}
+
 enum class ThemeChoice(val label: Int) {
-    NIPPON(R.string.theme_nippon), EMERALD(R.string.theme_emerald), RUBY(R.string.theme_ruby), TOPAZ(R.string.theme_topaz), SYSTEM(R.string.theme_system);
+    SYSTEM(R.string.theme_system_sakura), NIPPON(R.string.theme_nippon), YOZAKURA(R.string.theme_yozakura), EMERALD(R.string.theme_emerald), RUBY(R.string.theme_ruby), TOPAZ(R.string.theme_topaz);
 
     companion object {
         /** 讀設定值。 */
         fun parse(s: String?): ThemeChoice = when (s) {
-            else -> entries.firstOrNull { it.name == s } ?: NIPPON
+            else -> entries.firstOrNull { it.name == s } ?: SYSTEM
         }
     }
 }
@@ -154,10 +183,11 @@ enum class ThemeChoice(val label: Int) {
 fun RxTheme(choice: ThemeChoice, content: @Composable () -> Unit) {
     val p = when (choice) {
         ThemeChoice.NIPPON -> Nippon
+        ThemeChoice.YOZAKURA -> Yozakura
         ThemeChoice.EMERALD -> Emerald
         ThemeChoice.RUBY -> Ruby
         ThemeChoice.TOPAZ -> Topaz
-        ThemeChoice.SYSTEM -> if (isSystemInDarkTheme()) Emerald else Nippon
+        ThemeChoice.SYSTEM -> if (isSystemInDarkTheme()) Yozakura else Nippon
     }
     RxColors.palette = p
     DigitsHolder.family = FontFamily(

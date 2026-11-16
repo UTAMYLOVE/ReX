@@ -4,6 +4,7 @@ import io.github.xeno_hf.rex.res.R
 import rx.protocol.hex
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -72,6 +73,7 @@ private fun MalfPane() {
         seen.entries.sortedBy { it.value }.forEach { (n, t) -> MalfRow(stringResource(R.string.malf_first, n, rx.session.WallClock.format(t, "HH:mm:ss")), RxColors.warn) }
         Spacer(Modifier.height(12.dp))
         Text(stringResource(R.string.malf_hint), color = RxColors.muted, fontSize = 12.sp)
+        MapLog()
         // 名字裡有 Malf 但不是故障碼的位元（Malf_On、MILReq、…KeyOn_old、沒名字的 bitN）：照實列出，不當故障
         if (flags.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
@@ -79,6 +81,22 @@ private fun MalfPane() {
             flags.forEach { d -> Text(d.name, color = RxColors.muted, modifier = Modifier.padding(vertical = 2.dp)) }
             Text(stringResource(R.string.malf_flags_hint), color = RxColors.muted, fontSize = 12.sp)
         }
+    }
+}
+
+/** 這次連線的油圖變動紀錄（時間、從幾號到幾號、是不是這支手機切的、當時轉速車速）。 */
+@Composable
+private fun MapLog() {
+    val repo = LocalRepo.current
+    val events by repo.mapEvents.collectAsState()
+    val now by repo.mapNow.collectAsState()
+    Spacer(Modifier.height(12.dp))
+    SectionTitle(stringResource(R.string.map_log_title, now?.toString() ?: "—"))
+    if (events.isEmpty()) Text(stringResource(R.string.map_log_empty), color = RxColors.muted, fontSize = 13.sp)
+    events.reversed().forEach { e ->
+        MalfRow(stringResource(R.string.map_log_row, rx.session.WallClock.format(e.wallMs, "HH:mm:ss"), e.from, e.to,
+            stringResource(if (e.local) R.string.map_log_local else R.string.map_log_remote), e.rpm?.toInt() ?: 0, e.speed?.toInt() ?: 0),
+            if (e.local) RxColors.muted else RxColors.danger)
     }
 }
 
@@ -186,6 +204,87 @@ private fun SwitchRow(text: String, checked: Boolean, onChange: (Boolean) -> Uni
 }
 
 @Composable
+private fun MonitorSettings() {
+    val repo = LocalRepo.current
+    val style by repo.monStyle.collectAsState()
+    val red by repo.redline.collectAsState()
+    val wot by repo.wotMode.collectAsState()
+    val flash by repo.flashOn.collectAsState()
+    val locked by repo.controlsLocked.collectAsState()
+    var auto by remember { mutableStateOf(repo.autoConnect) }
+    SectionTitle(stringResource(R.string.set_monitor))
+    Text(stringResource(R.string.set_style))
+    androidx.compose.foundation.layout.FlowRow {
+        MonStyle.entries.forEach { st -> FilterChip(selected = style == st, onClick = { repo.setMonStyle(st) }, label = { Text(stringResource(st.label)) }, modifier = Modifier.padding(end = 6.dp)) }
+    }
+    Text(stringResource(R.string.set_tiles_hint), color = RxColors.muted, fontSize = 12.sp)
+    Spacer(Modifier.height(6.dp))
+    Text(stringResource(R.string.set_redline))
+    androidx.compose.foundation.layout.FlowRow {
+        listOf(9000, 9500, 10000, 10500, 11000).forEach { r -> FilterChip(selected = red == r, onClick = { repo.setRedline(r) }, label = { Text(rx.protocol.Fmt.grouped(r.toLong())) }, modifier = Modifier.padding(end = 6.dp)) }
+    }
+    Text(stringResource(R.string.set_wot))
+    androidx.compose.foundation.layout.FlowRow {
+        listOf(rx.session.RevFlash.Wot.BURST3 to R.string.set_wot_burst, rx.session.RevFlash.Wot.CONTINUOUS to R.string.set_wot_cont, rx.session.RevFlash.Wot.OFF to R.string.set_wot_off).forEach { (m, l) ->
+            FilterChip(selected = wot == m, onClick = { repo.setWotMode(m) }, label = { Text(stringResource(l)) }, modifier = Modifier.padding(end = 6.dp))
+        }
+    }
+    SwitchRow(stringResource(R.string.set_flash), flash) { repo.setFlashOn(it) }
+    Text(stringResource(R.string.set_flash_hint), color = RxColors.muted, fontSize = 12.sp)
+    SwitchRow(stringResource(R.string.set_lock), locked) { repo.setControlsLocked(it) }
+    SwitchRow(stringResource(R.string.set_auto_connect), auto) { auto = it; repo.autoConnect = it }
+}
+
+@Composable
+private fun OverlaySettings() {
+    val repo = LocalRepo.current
+    if (!repo.platform.supportsOverlay) return
+    val on by repo.overlayOn.collectAsState()
+    val rows by repo.overlayRows.collectAsState()
+    var permitted by remember { mutableStateOf(repo.platform.overlayPermitted()) }
+    var picking by remember { mutableStateOf<Int?>(null) }
+    // 從系統設定回來時重新檢查權限
+    androidx.compose.runtime.LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1000); permitted = repo.platform.overlayPermitted() } }
+    SectionTitle(stringResource(R.string.set_overlay))
+    SwitchRow(stringResource(R.string.set_overlay_on), on) { repo.setOverlayOn(it); if (it && !permitted) repo.platform.requestOverlayPermission() }
+    if (on && !permitted) {
+        Text(stringResource(R.string.set_overlay_perm), color = RxColors.warn, fontSize = 12.sp)
+        OutlinedButton(onClick = { repo.platform.requestOverlayPermission() }) { Text(stringResource(R.string.set_overlay_grant)) }
+    }
+    Text(stringResource(R.string.set_overlay_rows))
+    rows.forEachIndexed { i, f ->
+        Row(Modifier.fillMaxWidth().clickable { picking = i }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("${i + 1}.", color = RxColors.muted, modifier = Modifier.padding(end = 8.dp))
+            Text(stringResource(f.label), modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.change), color = RxColors.brandInk, fontSize = 13.sp)
+        }
+    }
+    Text(stringResource(R.string.set_overlay_hint), color = RxColors.muted, fontSize = 12.sp)
+    picking?.let { i -> FieldPicker(stringResource(R.string.pick_row_title, i + 1), rows.getOrNull(i), onPick = { repo.setOverlayRow(i, it); picking = null }, onDismiss = { picking = null }) }
+}
+
+@Composable
+private fun AiSettings() {
+    val repo = LocalRepo.current
+    if (repo.platform.ai == null) return
+    val provider by repo.aiProvider.collectAsState()
+    val auto by repo.aiAuto.collectAsState()
+    var key by remember(provider) { mutableStateOf(repo.aiKey(provider) ?: "") }
+    var model by remember(provider) { mutableStateOf(repo.aiModel(provider)) }
+    var note by remember { mutableStateOf(repo.vehicleNote) }
+    SectionTitle(stringResource(R.string.set_ai))
+    androidx.compose.foundation.layout.FlowRow {
+        io.github.xeno_hf.rex.AiProvider.entries.forEach { p -> FilterChip(selected = provider == p, onClick = { repo.setAiProvider(p) }, label = { Text(p.label) }, modifier = Modifier.padding(end = 6.dp)) }
+    }
+    OutlinedTextField(key, { key = it; repo.setAiKey(provider, it) }, label = { Text(stringResource(R.string.set_ai_key, provider.label)) }, singleLine = true,
+        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(model, { model = it; repo.setAiModel(provider, it) }, label = { Text(stringResource(R.string.set_ai_model)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(note, { note = it; repo.vehicleNote = it }, label = { Text(stringResource(R.string.set_vehicle_note)) }, modifier = Modifier.fillMaxWidth())
+    SwitchRow(stringResource(R.string.set_ai_auto), auto) { repo.setAiAuto(it) }
+    Text(stringResource(R.string.set_ai_hint), color = RxColors.muted, fontSize = 12.sp)
+}
+
+@Composable
 private fun SettingsPane() {
     val repo = LocalRepo.current
     val reg by repo.registry.collectAsState()
@@ -199,6 +298,9 @@ private fun SettingsPane() {
             }
         }
         Text(stringResource(R.string.set_look_hint), color = RxColors.muted, fontSize = 12.sp)
+        MonitorSettings()
+        OverlaySettings()
+        AiSettings()
         SectionTitle(stringResource(R.string.set_dash))
         val rpmMax by repo.rpmMax.collectAsState()
         val showGear by repo.showGear.collectAsState()

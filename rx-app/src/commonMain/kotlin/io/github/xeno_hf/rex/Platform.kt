@@ -71,6 +71,17 @@ interface Platform {
     /** 分享檔案（Android 分享選單／iOS 分享面板）。 */
     fun share(path: Path, mime: String, title: String)
 
+    /** 重要提醒（油圖被切換、健檢結果）：系統通知，[vibrate] 時加震動。[id] 相同的通知會互相取代。 */
+    fun alert(id: Int, title: String, text: String, vibrate: Boolean) {}
+
+    /** AI 解讀（沒有實作的平台為 null，畫面就不顯示 AI 功能）。 */
+    val ai: AiClient? get() = null
+
+    /** 懸浮小儀表（Android：顯示在其他應用程式上層）。 */
+    val supportsOverlay: Boolean get() = false
+    fun overlayPermitted(): Boolean = false
+    fun requestOverlayPermission() {}
+
     /** ZIP 讀出第一個符合的檔案（XTune 分享的紀錄是 zip）。 */
     fun unzipFirst(zip: ByteArray, nameFilter: (String) -> Boolean): Pair<String, ByteArray>?
 }

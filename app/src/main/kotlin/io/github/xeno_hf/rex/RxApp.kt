@@ -31,7 +31,14 @@ class RxApp : Application() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(RxService.CHANNEL, getString(R.string.notif_channel), NotificationManager.IMPORTANCE_LOW)
         )
+        // 提醒（油圖被切換、健檢結果）：預設等級＝有聲音、不跳橫幅，避免蓋住導航的轉向卡；震動由 App 自己控制
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(ALERT_CHANNEL, getString(R.string.notif_alert_channel), NotificationManager.IMPORTANCE_DEFAULT).apply { enableVibration(false) }
+        )
+        platform.overlay = OverlayController(this, repo).also { it.start() }
     }
+
+    companion object { const val ALERT_CHANNEL = "rx_alert" }
 }
 
 /**

@@ -47,7 +47,8 @@ actual fun PlatformSystemBars(p: RxPalette) {
     val view = LocalView.current
     if (view.isInEditMode) return
     SideEffect {
-        val w = (view.context as Activity).window
+        // 懸浮小儀表不在 Activity 裡，沒有系統列可改
+        val w = (view.context as? Activity)?.window ?: return@SideEffect
         @Suppress("DEPRECATION")
         run { w.statusBarColor = p.bg.toArgb(); w.navigationBarColor = p.card.toArgb() }
         WindowCompat.getInsetsController(w, view).apply {

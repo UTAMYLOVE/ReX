@@ -28,6 +28,17 @@ class MainActivity : ComponentActivity() {
         setContent { ReXApp(repo()) }
     }
 
+    override fun onStart() {
+        super.onStart()
+        (application as RxApp).platform.overlay?.appVisible = true
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // 離開 App（例如切到導航）：連線中就顯示懸浮小儀表
+        (application as RxApp).platform.overlay?.appVisible = false
+    }
+
     override fun onResume() {
         super.onResume()
         (application as io.github.xeno_hf.rex.RxApp).platform.activity = java.lang.ref.WeakReference(this)

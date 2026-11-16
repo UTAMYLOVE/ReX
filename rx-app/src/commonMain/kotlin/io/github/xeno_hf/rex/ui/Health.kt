@@ -5,6 +5,8 @@ import io.github.xeno_hf.rex.res.R
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import kotlinx.coroutines.launch
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,10 +61,11 @@ import rx.session.EngineHealth.Level
 fun HealthScreen(session: SessionDir, onClose: () -> Unit) {
     var report by remember(session.dir) { mutableStateOf<EngineHealth.Report?>(null) }
     var error by remember(session.dir) { mutableStateOf<String?>(null) }
+    val repo = LocalRepo.current
     LaunchedEffect(session.dir) {
-        runCatching {
-            withContext(Dispatchers.Default) { EngineHealth.analyze(Loga.parse(Fs.readBytes(kotlinx.io.files.Path(session.dir, "decoded.loga")))) }
-        }.onSuccess { report = it }.onFailure { error = it.message ?: it.toString() }
+        // 分析並存檔（健檢清單、AI 都讀這份）
+        runCatching { repo.runHealth(session.dir, notify = false) ?: error("no data") }
+            .onSuccess { report = it }.onFailure { error = it.message ?: it.toString() }
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -75,7 +79,83 @@ fun HealthScreen(session: SessionDir, onClose: () -> Unit) {
         when {
             e != null -> Text(stringResource(R.string.health_error, e), color = RxColors.danger, modifier = Modifier.padding(12.dp))
             r == null -> Text(stringResource(R.string.health_loading), color = RxColors.muted, modifier = Modifier.padding(12.dp))
-            else -> HealthReportBody(r, Modifier.verticalScroll(rememberScrollState()))
+            else -> Column(Modifier.verticalScroll(rememberScrollState())) {
+                AiPanel(session.dir)
+                HealthReportBody(r)
+            }
+        }
+    }
+}
+
+/** AI 解讀：有存過就直接顯示，沒有就給一顆按鈕（要在設定填 API 金鑰）。 */
+@Composable
+private fun AiPanel(dir: kotlinx.io.files.Path) {
+    val repo = LocalRepo.current
+    if (repo.platform.ai == null) return
+    val history by repo.healthHistory.collectAsState()
+    val saved = history.firstOrNull { it.dir == dir }?.ai
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var busy by remember(dir) { mutableStateOf(false) }
+    var err by remember(dir) { mutableStateOf<String?>(null) }
+    Column(
+        Modifier.fillMaxWidth().padding(bottom = 8.dp).background(RxColors.card, RoundedCornerShape(12.dp))
+            .border(1.dp, RxColors.brand.copy(alpha = .5f), RoundedCornerShape(12.dp)).padding(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.ai_title, repo.aiProvider.collectAsState().value.label), fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            androidx.compose.material3.OutlinedButton(enabled = !busy, onClick = {
+                busy = true; err = null
+                scope.launch { repo.aiExplain(dir).onFailure { err = it.message ?: it.toString() }; busy = false }
+            }) { Text(stringResource(if (busy) R.string.ai_busy else if (saved == null) R.string.ai_run else R.string.ai_rerun)) }
+        }
+        saved?.let { Text(it, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 6.dp)) }
+        err?.let { Text(it, color = RxColors.danger, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
+        Text(stringResource(R.string.ai_privacy), color = RxColors.muted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+/** 健檢趨勢：最近每趟騎乘的總分走勢，加上最近幾趟的摘要；點一趟看完整報告。 */
+@Composable
+fun HealthTrend(onOpen: (kotlinx.io.files.Path) -> Unit) {
+    val repo = LocalRepo.current
+    val history by repo.healthHistory.collectAsState()
+    if (history.isEmpty()) return
+    val recent = history.take(20).reversed()
+    Column(
+        Modifier.fillMaxWidth().background(RxColors.card, RoundedCornerShape(12.dp)).border(1.dp, RxColors.line, RoundedCornerShape(12.dp)).padding(12.dp),
+    ) {
+        Text(stringResource(R.string.trend_title, history.size), fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(6.dp))
+        val lineColor = RxColors.accent
+        val grid = RxColors.track
+        val warn = RxColors.warn
+        Canvas(Modifier.fillMaxWidth().height(56.dp)) {
+            drawLine(grid, androidx.compose.ui.geometry.Offset(0f, size.height * .3f), androidx.compose.ui.geometry.Offset(size.width, size.height * .3f), 1f)
+            if (recent.size >= 2) {
+                val p = Path()
+                recent.forEachIndexed { i, e ->
+                    val x = size.width * i / (recent.size - 1); val y = size.height * (1f - e.report.score / 100f)
+                    if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
+                }
+                drawPath(p, lineColor, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+            }
+            recent.forEachIndexed { i, e ->
+                val x = if (recent.size == 1) size.width / 2 else size.width * i / (recent.size - 1)
+                val y = size.height * (1f - e.report.score / 100f)
+                drawCircle(if (e.report.level == EngineHealth.Level.OK) lineColor else warn, 3.dp.toPx(), androidx.compose.ui.geometry.Offset(x, y))
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        history.take(5).forEach { e ->
+            val top = e.report.findings.firstOrNull { it.level != EngineHealth.Level.INFO }
+            Row(Modifier.fillMaxWidth().clickable { onOpen(e.dir) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("${e.report.score}", style = digits(20.sp, FontWeight.ExtraBold), color = levelColor(e.report.level), modifier = Modifier.width(44.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(e.dir.name.substringAfter('_'), fontSize = 12.sp, color = RxColors.muted, fontFamily = FontFamily.Monospace)
+                    Text(top?.let(::findingString) ?: stringResource(R.string.health_none), fontSize = 13.sp, maxLines = 2)
+                }
+                if (e.ai != null) Badge("AI", RxColors.brandInk)
+            }
         }
     }
 }
@@ -129,6 +209,12 @@ private fun metricLabel(key: String): Int? = when (key) {
     "fault_count" -> R.string.health_m_fault_count
     else -> null
 }
+
+/** 一條發現的完整文字（通知、AI 提示詞用）。 */
+fun findingString(f: EngineHealth.Finding): String = findingText(f.code)?.let { Strings.get(it, *f.args.toTypedArray()) } ?: (f.code + " " + f.args.joinToString(" "))
+
+/** 關鍵數值的名稱。 */
+fun metricString(key: String): String = metricLabel(key)?.let { Strings.get(it) } ?: key
 
 private fun findingText(code: String): Int? = when (code) {
     "temp_warn" -> R.string.health_f_temp_warn

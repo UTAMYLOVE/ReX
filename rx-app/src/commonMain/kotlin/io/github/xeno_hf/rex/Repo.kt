@@ -34,6 +34,16 @@ import io.github.xeno_hf.rex.Fs.nameWithoutExtension
 import io.github.xeno_hf.rex.res.R
 import io.github.xeno_hf.rex.ui.Strings
 import io.github.xeno_hf.rex.ui.ThemeChoice
+import io.github.xeno_hf.rex.ui.Ch
+import io.github.xeno_hf.rex.ui.MonField
+import io.github.xeno_hf.rex.ui.MonStyle
+import io.github.xeno_hf.rex.ui.RideStats
+import io.github.xeno_hf.rex.ui.findingString
+import io.github.xeno_hf.rex.ui.metricString
+import rx.session.EngineHealth
+import rx.session.HealthStore
+import rx.session.MapWatch
+import rx.session.RevFlash
 
 /** 一輪即時資料。 */
 class Live(val layout: DecodedLayout, val raw: LongArray, val tNanos: Long, val seq: Long) {
@@ -185,7 +195,7 @@ class Repo(val platform: Platform) {
         set(v) = prefs.putBoolean("runAfterClose", v)
     /** 收不到資料多久自動斷線（分鐘，0＝不自動斷）。 */
     var idleStopMinutes: Int
-        get() = prefs.getInt("idleStopMin", 10)
+        get() = prefs.getInt("idleStopMin", 0)
         set(v) = prefs.putInt("idleStopMin", v)
 
     // ---------------- 儀表選項（同 XTune 設定頁） ----------------
@@ -225,6 +235,59 @@ class Repo(val platform: Platform) {
         ThemeChoice.parse(prefs.getString("theme", null))
     )
     fun setTheme(t: ThemeChoice) { theme.value = t; prefs.putString("theme", t.name) }
+
+    // ---------------- 監控畫面／懸浮小儀表 ----------------
+    val monStyle = MutableStateFlow(MonStyle.parse(prefs.getString("monStyle", null)))
+    fun setMonStyle(v: MonStyle) { monStyle.value = v; prefs.putString("monStyle", v.name) }
+    /** 每種風格各自記住的四格欄位。 */
+    val monTiles = MutableStateFlow(MonStyle.entries.associateWith { MonField.parse(prefs.getString("monFields.${it.name}", null), MonField.DEFAULT_TILES) })
+    fun setMonTile(style: MonStyle, index: Int, f: MonField) {
+        val l = monTiles.value[style]!!.toMutableList().also { it[index] = f }
+        monTiles.value = monTiles.value + (style to l); prefs.putString("monFields.${style.name}", l.joinToString(",") { it.id })
+    }
+    /** 懸浮小儀表側翼的三列。 */
+    val overlayRows = MutableStateFlow(MonField.parse(prefs.getString("ovRows", null), MonField.DEFAULT_ROWS))
+    fun setOverlayRow(index: Int, f: MonField) {
+        val l = overlayRows.value.toMutableList().also { it[index] = f }
+        overlayRows.value = l; prefs.putString("ovRows", l.joinToString(",") { it.id })
+    }
+    val overlayOn = MutableStateFlow(prefs.getBoolean("overlay", true))
+    fun setOverlayOn(v: Boolean) { overlayOn.value = v; prefs.putBoolean("overlay", v) }
+    /** 轉速條：紅線、全油門行為、要不要閃。 */
+    val redline = MutableStateFlow(prefs.getInt("redline", 10_000))
+    fun setRedline(v: Int) { redline.value = v; prefs.putInt("redline", v) }
+    val wotMode = MutableStateFlow(runCatching { RevFlash.Wot.valueOf(prefs.getString("wotMode", "BURST3")!!) }.getOrDefault(RevFlash.Wot.BURST3))
+    fun setWotMode(v: RevFlash.Wot) { wotMode.value = v; prefs.putString("wotMode", v.name) }
+    val flashOn = MutableStateFlow(prefs.getBoolean("flashOn", true))
+    fun setFlashOn(v: Boolean) { flashOn.value = v; prefs.putBoolean("flashOn", v) }
+    fun flashSettings() = RevFlash.Settings(redline.value, wotMode.value, flashOn.value)
+
+    /** 開 App 就自動連上次的 ECU（預設開）。 */
+    var autoConnect: Boolean
+        get() = prefs.getBoolean("autoConnect", true)
+        set(v) = prefs.putBoolean("autoConnect", v)
+    private var autoConnectDone = false
+    /** App 啟動後呼叫一次：有設定 ECU 位址、還沒連線就自動連。 */
+    fun autoConnectOnce() {
+        if (autoConnectDone) return
+        autoConnectDone = true
+        if (autoConnect && target.value == null && registry.value != null && host.isNotBlank()) connect(Target.Ecu(host.trim()))
+    }
+
+    // ---------------- AI ----------------
+    val aiProvider = MutableStateFlow(AiProvider.parse(prefs.getString("aiProvider", null)))
+    fun setAiProvider(p: AiProvider) { aiProvider.value = p; prefs.putString("aiProvider", p.id) }
+    fun aiModel(p: AiProvider): String = prefs.getString("aiModel.${p.id}", null)?.ifBlank { null } ?: p.defaultModel
+    fun setAiModel(p: AiProvider, m: String) = prefs.putString("aiModel.${p.id}", m.trim())
+    fun aiKey(p: AiProvider): String? = secrets.get("ai.${p.id}")?.ifBlank { null }
+    fun setAiKey(p: AiProvider, k: String?) = secrets.put(k?.trim()?.ifEmpty { null }, "ai.${p.id}")
+    /** 每趟騎完自動請 AI 解讀（預設關，因為每次都會花 API 費用）。 */
+    val aiAuto = MutableStateFlow(prefs.getBoolean("aiAuto", false))
+    fun setAiAuto(v: Boolean) { aiAuto.value = v; prefs.putBoolean("aiAuto", v) }
+    /** 車輛說明（給 AI 參考）：車款、氣冷／水冷、改裝。 */
+    var vehicleNote: String
+        get() = prefs.getString("vehicleNote", "")!!
+        set(v) = prefs.putString("vehicleNote", v)
 
     var dashPage: Int
         get() = prefs.getInt("dashPage", 0)
@@ -267,7 +330,7 @@ class Repo(val platform: Platform) {
 
     /** 控制結果。UI 依 [outcome] 挑在地化字串，[label] 是功能名（AT、MAP 2…）。 */
     data class ControlMsg(val label: String, val outcome: Outcome, val detail: String? = null, val serial: Long = 0) {
-        enum class Outcome { ON, OFF, MAP_OK, NEEDS_LOGIN, NOT_LICENSED, REFUSED, ERROR, NOT_CONNECTED, DEMO, UNVERIFIED }
+        enum class Outcome { ON, OFF, MAP_OK, NEEDS_LOGIN, NOT_LICENSED, REFUSED, ERROR, NOT_CONNECTED, DEMO, UNVERIFIED, LOCKED }
     }
     private var controlSerial = 0L
     /** 最近一次控制寫入結果，給 UI 顯示 toast（null＝沒有）。 */
@@ -286,7 +349,12 @@ class Repo(val platform: Platform) {
         log("Control $label -> $o${detail?.let { " ($it)" } ?: ""}")
     }
 
+    /** 控制鈕鎖定（預設鎖上）：鎖上時 MAP／AT／Pit／LC／TC／EB 都按不動，手機架在車上不會誤觸。 */
+    val controlsLocked = MutableStateFlow(prefs.getBoolean("locked", true))
+    fun setControlsLocked(v: Boolean) { controlsLocked.value = v; prefs.putBoolean("locked", v) }
+
     private fun runControl(label: String, needsLogin: Boolean, onOk: (Session) -> suspend () -> ControlMsg.Outcome, op: suspend (Session) -> Session.WriteResult) {
+        if (controlsLocked.value) return emit(label, ControlMsg.Outcome.LOCKED)
         val s = session ?: return emit(label, ControlMsg.Outcome.NOT_CONNECTED)
         if (target.value is Target.Demo) return emit(label, ControlMsg.Outcome.DEMO)
         if (needsLogin && !ecuLoggedIn.value) return emit(label, ControlMsg.Outcome.NEEDS_LOGIN)
@@ -309,7 +377,10 @@ class Repo(val platform: Platform) {
     }
 
     /** 切 MAP 檔位（1-3）。免登入。 */
-    fun setMap(mapNo: Int) = runControl("MAP $mapNo", needsLogin = false, onOk = { { ControlMsg.Outcome.MAP_OK } }) { it.setMap(mapNo) }
+    fun setMap(mapNo: Int) = runControl("MAP $mapNo", needsLogin = false, onOk = { { ControlMsg.Outcome.MAP_OK } }) {
+        mapWatch.expect(mapNo, platform.elapsedNanos() / 1_000_000)
+        it.setMap(mapNo)
+    }
 
     /** 按儀表多功能鈕：[on]=null 依 ECU 現值反轉。結果讀回 ECU 再報「已開啟／已關閉」。 */
     fun pressFun(fn: DashFn, label: String, on: Boolean? = null) = runControl(label, needsLogin = fn !in NO_LOGIN_FUNS,
@@ -437,6 +508,9 @@ class Repo(val platform: Platform) {
             val layout = currentLayout ?: return
             history.add(tNanos, raw)
             live.value = Live(layout, raw, tNanos, ++seq)
+            onRide(tNanos, layout, raw)
+            mapWatch.onSample(tNanos / 1_000_000, layout.physical(Ch.MAP_NUM, raw)?.toInt())?.let { onMapChange(it, layout, raw) }
+            mapWatch.current?.let { if (mapNow.value != it) mapNow.value = it }
             val active = layout.activeMalfunctions(raw)
             if (active.isNotEmpty()) {
                 val m = malfSeen.value
@@ -450,6 +524,122 @@ class Repo(val platform: Platform) {
     }
 
     var currentLayout: DecodedLayout? = null; private set
+
+    // ---------------- 油圖監看 ----------------
+    /** 一次油圖變動：[local]＝這支手機切的。 */
+    data class MapEvent(val from: Int, val to: Int, val wallMs: Long, val local: Boolean, val rpm: Double?, val speed: Double?, val lat: Double?, val lon: Double?)
+    private val mapWatch = MapWatch()
+    val mapNow = MutableStateFlow<Int?>(null)
+    /** 這次連線的油圖變動紀錄（最新在後）。 */
+    val mapEvents = MutableStateFlow<List<MapEvent>>(emptyList())
+    /** 還沒確認的「不是這支手機切的」變動；畫面顯示提醒條，按「知道了」清掉。 */
+    val mapAlert = MutableStateFlow<MapEvent?>(null)
+    fun ackMapAlert() { mapAlert.value = null }
+
+    private fun onMapChange(c: MapWatch.Change, layout: DecodedLayout, raw: LongArray) {
+        val fix = gps.fresh()
+        val ev = MapEvent(c.from, c.to, WallClock.nowMs(), c.local, layout.physical(Ch.RPM, raw), layout.physical(Ch.SPEED, raw), fix?.lat, fix?.lon)
+        mapEvents.value = (mapEvents.value + ev).takeLast(200)
+        val text = "MAP ${c.from} -> ${c.to}${if (c.local) " (this phone)" else " (NOT from this phone)"}" +
+            " rpm=${ev.rpm?.toInt() ?: "-"} speed=${ev.speed?.toInt() ?: "-"}" + (fix?.let { " gps=${rx.protocol.Fmt.fixed(it.lat, 6)},${rx.protocol.Fmt.fixed(it.lon, 6)}" } ?: "")
+        recording.value?.onEvent(platform.elapsedNanos(), text)
+        log(text)
+        if (!c.local) {
+            mapAlert.value = ev
+            platform.alert(ALERT_MAP, Strings.get(R.string.map_alert_title, c.from, c.to),
+                Strings.get(R.string.map_alert_text, WallClock.format(ev.wallMs, "HH:mm:ss"), ev.speed?.toInt() ?: 0), vibrate = true)
+        }
+    }
+
+    // ---------------- 騎乘統計與自動分段 ----------------
+    val ride = MutableStateFlow(RideStats())
+    private var rideKm = 0.0
+    private var rideMaxRpm = 0.0
+    private var rideLastNanos = -1L
+
+    private fun resetRide() { rideKm = 0.0; rideMaxRpm = 0.0; rideLastNanos = -1; ride.value = RideStats(startMs = WallClock.nowMs()) }
+
+    private fun onRide(tNanos: Long, layout: DecodedLayout, raw: LongArray) {
+        val dt = if (rideLastNanos < 0) 0.0 else ((tNanos - rideLastNanos) / 1e9).coerceIn(0.0, 1.0)
+        rideLastNanos = tNanos
+        val spd = (if (speedFromGps.value) gps.fresh()?.speedKmh else null) ?: layout.physical(Ch.SPEED, raw) ?: 0.0
+        rideKm += spd * dt / 3600.0
+        layout.physical(Ch.RPM, raw)?.let { if (it > rideMaxRpm) rideMaxRpm = it }
+        if (seq % 8 == 0L) ride.value = ride.value.copy(km = rideKm, maxRpm = rideMaxRpm)
+    }
+
+    /**
+     * 自動分段：引擎發動（轉速 >300）就開始錄，熄火或收不到資料超過 [RIDE_END_MS] 就收檔並自動健檢，下次發動再開新的一筆。
+     * 只用在真的 ECU；體驗模式照舊。
+     */
+    private suspend fun rideLoop(s: Session, t: Target) {
+        var quietSince = -1L
+        while (true) {
+            kotlinx.coroutines.delay(1_000)
+            if (session !== s) return
+            if (t !is Target.Ecu) continue
+            val now = platform.elapsedNanos() / 1_000_000
+            val l = live.value
+            val fresh = l != null && state.value == SessionState.Streaming && now - l.tNanos / 1_000_000 < 3_000
+            val running = fresh && (l!!.v(Ch.RPM) ?: 0.0) > 300
+            if (running) quietSince = -1 else if (quietSince < 0) quietSince = now
+            val rec = recording.value
+            if (rec == null) { if (autoRecord.value && running) startRecording() }
+            else if (quietSince >= 0 && now - quietSince > RIDE_END_MS) {
+                log("Engine off for ${RIDE_END_MS / 1000} s, closing this ride")
+                stopRecording()
+            }
+        }
+    }
+    private var rideJob: Job? = null
+
+    // ---------------- 騎完自動健檢 ----------------
+    /** 一趟騎乘的健檢結果（最新在前）。 */
+    data class HealthEntry(val dir: Path, val report: EngineHealth.Report, val ai: String?)
+    val healthHistory = MutableStateFlow<List<HealthEntry>>(emptyList())
+
+    fun loadHealthHistory() = scope.launch(Dispatchers.Default) {
+        healthHistory.value = Fs.list(sessionsRoot).filter { Fs.isDir(it) && Fs.exists(Path(it, HealthStore.FILE)) }
+            .sortedByDescending { it.name.substringAfter('_') }
+            .mapNotNull { d -> runCatching { HealthStore.decode(Fs.readText(Path(d, HealthStore.FILE)))?.let { HealthEntry(d, it, readAi(d)) } }.getOrNull() }
+    }
+
+    private fun readAi(d: Path) = Path(d, AI_FILE).let { if (Fs.exists(it)) Fs.readText(it) else null }
+
+    /** 分析一趟紀錄、存檔、更新清單；[notify] 時推一則通知。 */
+    suspend fun runHealth(dir: Path, notify: Boolean): EngineHealth.Report? = withContext(Dispatchers.Default) {
+        val loga = Path(dir, "decoded.loga")
+        if (Fs.size(loga) <= 0) return@withContext null
+        val r = runCatching { EngineHealth.analyze(Loga.parse(Fs.readBytes(loga))) }.getOrNull() ?: return@withContext null
+        runCatching { Fs.writeText(Path(dir, HealthStore.FILE), HealthStore.encode(r)) }
+        healthHistory.value = (listOf(HealthEntry(dir, r, readAi(dir))) + healthHistory.value.filter { it.dir != dir })
+            .sortedByDescending { it.dir.name.substringAfter('_') }
+        if (notify && r.runningSec >= EngineHealth.MIN_RUNNING_SEC) {
+            platform.alert(ALERT_HEALTH, Strings.get(R.string.health_notif_title, r.score), healthHeadline(r), vibrate = r.level == EngineHealth.Level.DANGER)
+        }
+        r
+    }
+
+    /** 通知用的一句話：最嚴重的發現，沒有就說良好。 */
+    private fun healthHeadline(r: EngineHealth.Report): String {
+        val f = r.findings.firstOrNull { it.level != EngineHealth.Level.INFO } ?: return Strings.get(R.string.health_none)
+        return io.github.xeno_hf.rex.ui.findingString(f)
+    }
+
+    /** 請 AI 解讀一趟騎乘；成功就存成 ai.txt。 */
+    suspend fun aiExplain(dir: Path): Result<String> = runCatching {
+        val client = platform.ai ?: error(Strings.get(R.string.ai_unavailable))
+        val p = aiProvider.value
+        val key = aiKey(p) ?: error(Strings.get(R.string.ai_no_key, p.label))
+        val entry = healthHistory.value.firstOrNull { it.dir == dir }
+        val report = entry?.report ?: runHealth(dir, notify = false) ?: error(Strings.get(R.string.health_error, "no data"))
+        val user = AiPrompt.user(report, vehicleNote, dir.name, ::findingString, ::metricString)
+        val text = client.complete(p, key, aiModel(p), AiPrompt.SYSTEM, user).trim()
+        require(text.isNotEmpty()) { Strings.get(R.string.ai_empty) }
+        Fs.writeText(Path(dir, AI_FILE), text)
+        healthHistory.value = healthHistory.value.map { if (it.dir == dir) it.copy(ai = text) else it }
+        text
+    }
 
     fun recentFrames(): List<Triple<Long, Int, Frame>> = synchronized(framesLock) { recentFrames.toList() }
 
@@ -467,6 +657,7 @@ class Repo(val platform: Platform) {
             val layout = DecodedLayout(reg, table)
             currentLayout = layout
             history.clear(); malfSeen.value = emptyMap(); live.value = null
+            mapWatch.reset(); mapNow.value = null; mapEvents.value = emptyList(); mapAlert.value = null
             val connector: suspend () -> rx.session.Transport = when (t) {
                 is Target.Ecu -> ({ platform.connectEcu(t.host) })
                 is Target.Demo -> {
@@ -493,11 +684,10 @@ class Repo(val platform: Platform) {
             stateJob = scope.launch {
                 s.state.collectLatest {
                     state.value = it
-                    // 連上車（不含體驗模式）就自動開始錄；重連時沿用同一份錄製
-                    if (it == SessionState.Streaming && autoRecord.value && t !is Target.Demo && recording.value == null) startRecording()
                 }
             }
             idleJob = scope.launch { autoStopWhenIdle(s) }
+            rideJob = scope.launch { rideLoop(s, t) }
             log("Connect ${if (t is Target.Ecu) t.host else "demo"}; group ${preset.title}: ${table.entries.size} ch")
             s.start()
             if (gpsEnabled.value) gps.start()
@@ -526,6 +716,7 @@ class Repo(val platform: Platform) {
 
     private suspend fun disconnectInternal() {
         idleJob?.cancel(); idleJob = null
+        rideJob?.cancel(); rideJob = null
         stopRecording()
         platform.releaseEcuAp()
         uplink.value?.let { u -> session?.removeListener(u); u.close() }
@@ -584,6 +775,7 @@ class Repo(val platform: Platform) {
         rec.onEvent(platform.elapsedNanos(), "Recording started: ${layout.table.entries.size} ch, ${layout.columns.size} columns")
         s.addListener(rec)
         liveMarks.value = emptyList()
+        resetRide()
         recording.value = rec
         log("Recording -> ${dir.name}")
     }
@@ -607,6 +799,11 @@ class Repo(val platform: Platform) {
         recording.value = null
         liveMarks.value = emptyList()
         log("Recording stopped: ${rec.rounds} rounds, ${rec.frames} frames")
+        val dir = rec.dir
+        if (!dir.name.startsWith("DEMO") && rec.rounds > 0) scope.launch {
+            val r = runHealth(dir, notify = true)
+            if (r != null && aiAuto.value && r.runningSec >= EngineHealth.MIN_RUNNING_SEC && aiKey(aiProvider.value) != null) aiExplain(dir)
+        }
     }
 
     /** 錄製中打一個標記；[label] 拿到這筆錄製裡的編號（從 1 起）。沒在錄回 null。 */
@@ -634,7 +831,12 @@ class Repo(val platform: Platform) {
             "race1" to PhoneGps.SPEED_ID, "race2" to 34, "race3" to 53, "race4" to 22, "raceH" to 34,
             "cruise1" to 34, "cruise2" to PhoneGps.SPEED_ID, "cruise3" to 22, "cruise4" to 53, "cruise5" to 1420, "cruise6" to 1427,
         )
-        const val AUTO_RECORD_DEFAULT = false
+        const val AUTO_RECORD_DEFAULT = true
+        /** 熄火（或收不到資料）多久算一趟騎完。 */
+        const val RIDE_END_MS = 90_000L
+        const val AI_FILE = "ai.txt"
+        const val ALERT_MAP = 101
+        const val ALERT_HEALTH = 102
         const val UPLINK_PORT = 6680
         val SLOT_MAX = mapOf("race" to 4, "cruise" to 6)
 
