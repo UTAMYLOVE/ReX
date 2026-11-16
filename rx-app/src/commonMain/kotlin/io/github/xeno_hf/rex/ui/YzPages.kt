@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -77,6 +78,10 @@ internal fun YzSwitchRow(text: String, checked: Boolean, divider: Boolean = fals
     YzRow(text, divider) { YzSwitch(checked, onChange) }
 }
 
+/** 資料夾名 → 「11/16」（趨勢圖下的日期）。 */
+internal fun rideDay(folder: String): String =
+    Regex("""^[A-Za-z]+_\d{4}(\d{2})(\d{2})_""").find(folder)?.let { "${it.groupValues[1]}/${it.groupValues[2]}" } ?: ""
+
 /** 健檢分頁的車牌式日期牌：上排日期（不是今年加年份、同一分鐘第二趟加 #2），下排大字時間。 */
 @Composable
 internal fun YzDatePlate(folder: String) {
@@ -87,9 +92,13 @@ internal fun YzDatePlate(folder: String) {
         top = (if (y != WallClock.format(WallClock.nowMs(), "yyyy")) "$y/" else "") + "$mo/$d" + (if (n.isNotEmpty()) " #$n" else "")
         big = "$h:$mi"
     }
-    Box(Modifier.border(1.5.dp, Yz.keyline.copy(alpha = 0.8f)).padding(3.dp).border(1.dp, RxColors.line).padding(horizontal = 12.dp, vertical = 4.dp)) {
+    val light = RxColors.palette.light
+    Box(Modifier.background(if (light) Color.White else Color(0xFF170811)).border(1.5.dp, Yz.keyline.copy(alpha = 0.85f)).padding(horizontal = 12.dp, vertical = 4.dp)) {
+        // 車牌兩顆螺絲
+        Box(Modifier.align(Alignment.TopStart).padding(top = 1.dp).size(3.dp).background(Yz.label, androidx.compose.foundation.shape.CircleShape))
+        Box(Modifier.align(Alignment.TopEnd).padding(top = 1.dp).size(3.dp).background(Yz.label, androidx.compose.foundation.shape.CircleShape))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(top, color = RxColors.muted, style = digits(12.sp, FontWeight.SemiBold))
+            Text(top, color = if (light) Color(0xFFA8406A) else Yz.petal, style = digits(12.sp, FontWeight.Bold))
             Text(big, color = RxColors.text, style = digits(24.sp, FontWeight.ExtraBold))
         }
     }
@@ -103,8 +112,12 @@ internal fun YzScoreBoard(score: Int, level: rx.session.EngineHealth.Level) {
         rx.session.EngineHealth.Level.WARN -> Yz.rose to Yz.ink
         else -> Yz.pastel to Yz.ink
     }
-    Box(Modifier.background(bg, CutCornerShape(topEnd = 8.dp)).padding(horizontal = 10.dp, vertical = 2.dp)) {
-        Text("$score", color = fg, style = digits(30.sp, FontWeight.ExtraBold))
+    // 比賽號碼布：右下一塊硬陰影
+    Box {
+        Box(Modifier.matchParentSize().padding(start = 4.dp, top = 4.dp).background(if (level == rx.session.EngineHealth.Level.OK) Yz.rose else Yz.ink))
+        Box(Modifier.padding(end = 4.dp, bottom = 4.dp).background(bg).border(1.5.dp, Yz.ink).padding(horizontal = 10.dp, vertical = 2.dp)) {
+            Text("$score", color = fg, style = digits(30.sp, FontWeight.ExtraBold))
+        }
     }
 }
 
@@ -118,7 +131,7 @@ internal fun YzPassChip(label: String, level: rx.session.EngineHealth.Level) {
         Modifier.then(if (fill != null) Modifier.background(fill, shape) else Modifier.border(1.dp, RxColors.line, shape)).padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(if (bad) "✕" else "✓", color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else Yz.aqua, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Text(if (bad) "✕" else "✓", color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else if (RxColors.palette.light) Color(0xFFA8406A) else Yz.petal, fontSize = 12.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.width(4.dp))
         Text(label, color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else RxColors.text.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
@@ -189,7 +202,7 @@ fun YzHealthTab() {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp), state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item(key = "top") { Spacer(Modifier.height(4.dp)) }
         item(key = "trend") { HealthTrend { d -> report = d } }
-        item(key = "title") { YzSectionHeader(null, stringResource(R.string.yz_rides, list.size)) }
+        item(key = "title") { YzSectionHeader(if (history.isEmpty()) 1 else 2, stringResource(R.string.yz_rides, list.size)) }
         items(list, key = { it.dir.name }) { s ->
             val live = rec?.dir == s.dir
             val entry = history.firstOrNull { it.dir == s.dir }
@@ -199,10 +212,14 @@ fun YzHealthTab() {
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         val top = entry?.report?.findings?.firstOrNull { it.level != rx.session.EngineHealth.Level.INFO }
-                        Text(
+                        if (entry != null && !live) Row(verticalAlignment = Alignment.Bottom) {
+                            // 引擎運轉幾分鐘：大數字＋小單位
+                            val min = (entry.report.runningSec / 60).toInt()
+                            Text("$min", style = digits(26.sp, FontWeight.ExtraBold, italic = true), color = if (RxColors.palette.light) RxColors.text else Yz.pastel)
+                            Text(" " + stringResource(R.string.yz_minutes, min).replace("$min", "").trim(), color = Yz.label, fontSize = 13.sp, modifier = Modifier.padding(bottom = 4.dp))
+                        } else Text(
                             when {
                                 live -> stringResource(R.string.yz_recording_now)
-                                entry != null -> stringResource(R.string.yz_minutes, (entry.report.runningSec / 60).toInt())
                                 s.rounds != null -> "${rx.protocol.Fmt.fixed(s.sizeBytes / 1e6, 1)} MB"
                                 else -> stringResource(R.string.rec_unfinished, s.sizeBytes / 1e6)
                             },
@@ -225,7 +242,7 @@ fun YzHealthTab() {
                     }
                 }
                 if (!live) Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (Fs.size(Path(s.dir, "decoded.loga")) > 0) YzButton(stringResource(R.string.health_title)) { report = s.dir }
+                    if (Fs.size(Path(s.dir, "decoded.loga")) > 0) YzButton(stringResource(R.string.health_title), primary = true) { report = s.dir }
                     YzButton(stringResource(R.string.rec_share_public)) { confirmShare = s }
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = { confirmDelete = s }) { Text(stringResource(R.string.delete), color = Yz.danger, fontWeight = FontWeight.Bold) }

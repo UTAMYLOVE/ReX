@@ -146,7 +146,7 @@ private fun YzRoot(startTab: String?) {
 
     val loadingDefs by repo.registryLoading.collectAsState()
     if (registry == null) {
-        Box(Modifier.fillMaxSize().rxBackground()) {
+        Box(Modifier.fillMaxSize().background(RxColors.bg)) {
             if (loadingDefs) Text(stringResource(R.string.loading), color = RxColors.muted, modifier = Modifier.align(Alignment.Center)) else ImportScreen()
         }
         return
@@ -164,9 +164,9 @@ private fun YzRoot(startTab: String?) {
     }
 
     if (isLandscape()) {
-        Row(Modifier.fillMaxSize().rxBackground().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        Row(Modifier.fillMaxSize().background(RxColors.bg).windowInsetsPadding(WindowInsets.safeDrawing)) {
             Column(
-                Modifier.width(76.dp).fillMaxHeight().background(RxColors.card.copy(alpha = 0.92f)).padding(vertical = 8.dp),
+                Modifier.width(76.dp).fillMaxHeight().background(Yz.band).padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 YzWordmark(compact = true)
@@ -179,7 +179,7 @@ private fun YzRoot(startTab: String?) {
             Box(Modifier.weight(1f).fillMaxSize()) { content() }
         }
     } else {
-        Column(Modifier.fillMaxSize().rxBackground()) {
+        Column(Modifier.fillMaxSize().background(RxColors.bg)) {
             YzTopBar(onStatus = { showSheet = true })
             Box(Modifier.weight(1f).fillMaxWidth()) { content() }
             YzTabBar(tab) { tab = it }
@@ -215,17 +215,22 @@ private fun YzTopBar(onStatus: () -> Unit) {
 /** 底部頁籤：上緣細線；選中的頁籤上方一段 10° 斜的櫻粉條、字變粗白。 */
 @Composable
 private fun YzTabBar(tab: YzTab, onSelect: (YzTab) -> Unit) {
-    Column(Modifier.fillMaxWidth().background(if (RxColors.palette.light) Color.White else Color(0xFF0E080B))
+    Column(Modifier.fillMaxWidth().background(Yz.band)
         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(RxColors.line))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF4E2A3F)))
         Row(Modifier.fillMaxWidth().height(60.dp), verticalAlignment = Alignment.CenterVertically) {
             YzTab.entries.forEach { t ->
                 val sel = tab == t
-                val tint = if (sel) RxColors.text else RxColors.muted
+                val tint = if (sel) Yz.pastel else Color(0xFFC29BAB)
                 Box(Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = null, indication = null) { onSelect(t) }) {
-                    if (sel) Box(Modifier.align(Alignment.TopCenter).size(64.dp, 4.dp).background(Yz.rose, SlantShape))
+                    if (sel) {
+                        // 選中：10° 斜板由上往下淡出的玫瑰色＋上緣一條櫻粉
+                        Box(Modifier.align(Alignment.Center).fillMaxHeight().width(120.dp).background(
+                            androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Yz.rose.copy(alpha = .30f), Color.Transparent)), SlantShape))
+                        Box(Modifier.align(Alignment.TopCenter).size(120.dp, 3.dp).background(Yz.pastel, SlantShape))
+                    }
                     Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(t.icon, null, tint = if (sel) Yz.rose else tint, modifier = Modifier.size(20.dp))
+                        Icon(t.icon, null, tint = tint, modifier = Modifier.size(20.dp))
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(t.label), color = tint, fontSize = 16.sp, fontWeight = if (sel) FontWeight.Black else FontWeight.Medium, maxLines = 1)
                     }
@@ -237,11 +242,11 @@ private fun YzTabBar(tab: YzTab, onSelect: (YzTab) -> Unit) {
 
 @Composable
 private fun YzRailItem(t: YzTab, selected: Boolean, onClick: () -> Unit) {
-    val c = if (selected) RxColors.text else RxColors.muted
+    val c = if (selected) Yz.pastel else Color(0xFFC29BAB)
     Box(Modifier.width(64.dp).clickable(onClick = onClick).padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
-        if (selected) Box(Modifier.align(Alignment.CenterStart).size(4.dp, 36.dp).background(Yz.rose, SlantShape))
+        if (selected) Box(Modifier.align(Alignment.CenterStart).size(4.dp, 36.dp).background(Yz.pastel, SlantShape))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(t.icon, null, tint = if (selected) Yz.rose else c, modifier = Modifier.size(22.dp))
+            Icon(t.icon, null, tint = c, modifier = Modifier.size(22.dp))
             Text(stringResource(t.label), fontSize = 12.sp, lineHeight = 15.sp, color = c, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium)
         }
     }

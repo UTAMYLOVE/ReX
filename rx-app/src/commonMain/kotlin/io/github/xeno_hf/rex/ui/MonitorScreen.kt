@@ -120,6 +120,12 @@ fun MonitorScreen() {
         else min(maxWidth.value / 412f, maxHeight.value / (dialH + lowerDu + 20))
         val dial: @Composable () -> Unit = {
             Box(Modifier.size((412 * k).dp, (dialH * k).dp)) {
+                // 夜間：錶盤後面一圈玫瑰色光暈（像高速公路夜燈），不蓋到任何數字
+                if (night) Canvas(Modifier.fillMaxSize()) {
+                    drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(
+                        0f to Inst.rose.copy(alpha = .30f), .62f to Inst.rose.copy(alpha = .12f), 1f to Color.Transparent,
+                        center = Offset(size.width / 2, size.height * .5f), radius = size.width * .62f), size.width * .62f, Offset(size.width / 2, size.height * .5f))
+                }
                 Canvas(Modifier.fillMaxSize()) {
                     val d = frame.value ?: return@Canvas
                     val sx = size.width / 412f
@@ -331,8 +337,8 @@ private fun DrawScope.tpsRow(tm: TextMeasurer, l: Live?, pal: PagePal) {
     if (tps != null && tps >= 95) {
         val text = Strings.get(R.string.wot)
         val cw = textWidth(tm, text, 13f) + 22
-        drawPath(paraPath(16 + w + 12, 12f, cw, 20f), Inst.aqua)
-        txt(tm, text, 16 + w + 12 + cw / 2, 26.5f, 13f, if (pal.night) Inst.bg else Inst.ink, anchor = 'c')
+        drawPath(paraPath(16 + w + 12, 12f, cw, 20f), if (pal.night) Inst.sakura else Inst.roseLine)
+        txt(tm, text, 16 + w + 12 + cw / 2, 26.5f, 13f, if (pal.night) Inst.bg else Color.White, anchor = 'c')
     }
     val pw = txt(tm, "%", 396f, 26f, 13f, pal.label, anchor = 'r')
     txt(tm, tps?.let { "${kotlin.math.round(it).toInt()}" } ?: "—", 396f - pw - 4, 26f, 28f, pal.num, FontWeight.ExtraBold, digits = true, anchor = 'r')
@@ -362,7 +368,7 @@ private fun DrawScope.sysRow(tm: TextMeasurer, l: Live?, ride: RideStats, pal: P
         val p = chamPath(x, 1f, w, H - 2, 6f)
         val fg = when (v) {
             Lv.FAULT -> { drawPath(p, pal.fault); Color.White }
-            Lv.CAUTION -> { drawPath(p, pal.caution); if (pal.night) Inst.bg else Color.White }
+            Lv.CAUTION -> { drawPath(p, pal.caution); Inst.ink }
             Lv.OK -> { drawPath(p, pal.tile); drawPath(p, pal.chipStroke, style = Stroke(1f)); pal.label }
         }
         val mark = if (v == Lv.OK) "✓" else "✕"

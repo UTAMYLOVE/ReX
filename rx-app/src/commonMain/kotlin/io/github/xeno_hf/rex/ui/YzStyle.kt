@@ -56,15 +56,24 @@ object Yz {
     /** 櫻粉（六色之一）：字標、重點。 */
     val pastel = Color(0xFFFEDFE1)
     val rose = Color(0xFFDC9FB4)
+    /** 粉色在深底上還看得出是粉的那一階：✓、日期牌、小標。 */
+    val petal = Color(0xFFF7C1D0)
     val aqua = Color(0xFFA5DEE4)
     val mocha = Color(0xFF9E7A7A)
-    /** 淺色填底上的深色字。 */
-    val ink get() = if (RxColors.palette.light) Color(0xFF3A2328) else Color(0xFF1A1014)
+    val beige = Color(0xFFD7C4BB)
+    /** 頂列與底部頁籤的深色帶（日夜都一樣）。 */
+    val band = Color(0xFF12060E)
+    /** 粉色、紅色、白色底上的深色字（玫瑰黑紫）。 */
+    val ink = Color(0xFF1C0E15)
+    /** 沒選的斜切板外框。 */
+    val slabLine get() = if (RxColors.palette.light) Color(0xFFD9A9B7) else Color(0xFF8E5D74)
+    /** 小標、單位（夜間玫瑰、日間深玫瑰）。 */
+    val label get() = if (RxColors.palette.light) Color(0xFF7A4656) else rose
     /** 「注意」：玫瑰粉（不用黃色）。「危險」：紅。 */
     val caution get() = RxColors.warn
     val danger get() = RxColors.danger
-    /** 主要框線（夜間白、日間茶褐）。 */
-    val keyline get() = if (RxColors.palette.light) Color(0xFF5A4545) else Color(0xFFFFFFFF)
+    /** 主要框線（夜間白、日間深字色）。 */
+    val keyline get() = if (RxColors.palette.light) Color(0xFF1F0E16) else Color(0xFFFFFFFF)
 }
 
 /** 10° 平行四邊形（左下往右上斜）。 */
@@ -111,7 +120,7 @@ private fun wordmarkFamily() = FontFamily(Font(Res.font.dela_gothic_wordmark, Fo
  * 貼紙字標「夜櫻」：最外圈玫瑰色描邊、中間一圈深色空隙、最上面填色（像切割貼紙，不用偏移陰影）。
  */
 @Composable
-fun YzStickerWordmark(size: Int = 26, fill: Color = Yz.pastel, keyline: Color = Yz.rose, gap: Color = Color(0xFF140C10)) {
+fun YzStickerWordmark(size: Int = 26, fill: Color = Yz.pastel, keyline: Color = Yz.rose, gap: Color = Yz.ink) {
     val family = wordmarkFamily()
     val base = TextStyle(fontFamily = family, fontSize = size.sp, lineHeight = (size * 1.15f).sp)
     Box {
@@ -123,7 +132,7 @@ fun YzStickerWordmark(size: Int = 26, fill: Color = Yz.pastel, keyline: Color = 
 
 /** 「YOZAKURA」斜切板。 */
 @Composable
-fun YzNameSlab(fill: Color = Yz.pastel, text: Color = Color(0xFF1A1014), keyline: Color = Yz.rose) {
+fun YzNameSlab(fill: Color = Yz.pastel, text: Color = Yz.ink, keyline: Color = Yz.rose) {
     Box(
         Modifier.border(1.5.dp, keyline, SlantShape).padding(2.dp).background(fill, SlantShape).padding(horizontal = 10.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center,
@@ -135,7 +144,7 @@ fun YzNameSlab(fill: Color = Yz.pastel, text: Color = Color(0xFF1A1014), keyline
 /** 頂列（ハチマキ）：貼紙字標＋名牌＋斜條，下緣一條車隊色細線（不畫到底，右邊留給狀態 chip）。 */
 @Composable
 fun YzBanner(modifier: Modifier = Modifier, end: @Composable RowScope.() -> Unit) {
-    Box(modifier.fillMaxWidth()) {
+    Box(Modifier.fillMaxWidth().background(Yz.band).then(modifier)) {
         Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             YzStickerWordmark()
             Spacer(Modifier.width(10.dp))
@@ -145,8 +154,10 @@ fun YzBanner(modifier: Modifier = Modifier, end: @Composable RowScope.() -> Unit
             Spacer(Modifier.weight(1f))
             end()
         }
-        Canvas(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(2.dp)) {
-            drawRect(Yz.rose, size = size.copy(width = size.width * 0.74f))
+        // 下緣雙細線：櫻粉 2 dp＋玫瑰 1 dp，不畫到底（右邊留給狀態 chip）
+        Canvas(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(4.dp)) {
+            drawRect(Yz.pastel, size = size.copy(width = size.width * 0.74f, height = 2.dp.toPx()))
+            drawRect(Yz.rose, topLeft = Offset(0f, 3.dp.toPx()), size = size.copy(width = size.width * 0.70f, height = 1.dp.toPx()))
         }
     }
 }
@@ -168,14 +179,14 @@ fun YzHatch(color: Color, modifier: Modifier) {
 @Composable
 fun YzStateChip(text: String, color: Color, dot: Boolean, hatch: Boolean, modifier: Modifier = Modifier, compact: Boolean = false) {
     Row(
-        modifier.clip(YzChipShape).background(if (RxColors.palette.light) Color.White else Color(0xFF120A0E), YzChipShape)
+        modifier.clip(YzChipShape).background(Color(0xFF24101C), YzChipShape)
             .border(1.5.dp, color.copy(alpha = 0.85f), YzChipShape).heightIn(min = if (compact) 26.dp else 32.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (hatch) YzHatch(color, Modifier.size(14.dp, if (compact) 26.dp else 32.dp))
         Spacer(Modifier.width(if (compact) 6.dp else 10.dp))
         if (dot) { Box(Modifier.size(8.dp).background(color, CutCornerShape(4.dp))); Spacer(Modifier.width(6.dp)) }
-        Text(text, color = if (hatch) color else RxColors.text, fontSize = if (compact) 11.sp else 14.sp, fontWeight = FontWeight.Black, maxLines = 1)
+        Text(text, color = if (hatch) color else Color(0xFFFFF1F3), fontSize = if (compact) 11.sp else 14.sp, fontWeight = FontWeight.Black, maxLines = 1)
         Spacer(Modifier.width(if (compact) 6.dp else 12.dp))
     }
 }
@@ -185,12 +196,13 @@ fun YzStateChip(text: String, color: Color, dot: Boolean, hatch: Boolean, modifi
 fun YzSectionHeader(index: Int?, title: String) {
     Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (index != null) {
-            Box(Modifier.size(20.dp).border(1.5.dp, Yz.keyline), contentAlignment = Alignment.Center) {
-                Text("$index", color = Yz.keyline, style = digits(12.sp, FontWeight.ExtraBold))
+            // 路牌編號：櫻粉斜切板＋深色兩位數字
+            Box(Modifier.background(Yz.pastel, SlantShape).border(1.dp, if (RxColors.palette.light) Yz.ink else Yz.pastel, SlantShape).padding(horizontal = 8.dp, vertical = 1.dp), contentAlignment = Alignment.Center) {
+                Text(index.toString().padStart(2, '0'), color = Yz.ink, style = digits(12.sp, FontWeight.ExtraBold, italic = true))
             }
             Spacer(Modifier.width(10.dp))
         }
-        Text(title, color = RxColors.text, fontSize = 18.sp, fontWeight = FontWeight.Black)
+        Text(title, color = if (RxColors.palette.light) RxColors.text else Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.width(10.dp))
         YzSlashes()
         Spacer(Modifier.width(10.dp))
@@ -218,11 +230,11 @@ fun <T> YzSegmented(options: List<Pair<T, String>>, selected: T, onSelect: (T) -
         options.forEach { (v, label) ->
             val sel = v == selected
             Box(
-                Modifier.clip(SlantShape).then(if (sel) Modifier.background(Yz.pastel, SlantShape) else Modifier.border(1.5.dp, Yz.mocha, SlantShape))
+                Modifier.clip(SlantShape).then(if (sel) Modifier.background(Yz.pastel, SlantShape).border(1.dp, if (RxColors.palette.light) Yz.ink else Yz.pastel, SlantShape) else Modifier.border(1.5.dp, Yz.slabLine, SlantShape))
                     .clickable { onSelect(v) }.widthIn(min = minWidth).height(36.dp).padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, color = if (sel) Yz.ink else RxColors.text, fontSize = 14.sp, fontWeight = if (sel) FontWeight.Black else FontWeight.Bold, maxLines = 1)
+                Text(label, color = if (sel) Yz.ink else Yz.label, fontSize = 14.sp, fontWeight = if (sel) FontWeight.Black else FontWeight.Bold, maxLines = 1)
             }
         }
     }
@@ -233,11 +245,11 @@ fun <T> YzSegmented(options: List<Pair<T, String>>, selected: T, onSelect: (T) -
 fun YzSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val shape = CutCornerShape(topStart = 5.dp, bottomEnd = 5.dp)
     Box(
-        Modifier.size(54.dp, 30.dp).clip(shape).then(if (checked) Modifier.background(Yz.pastel, shape) else Modifier.border(1.5.dp, Yz.mocha, shape))
+        Modifier.size(54.dp, 30.dp).clip(shape).then(if (checked) Modifier.background(Yz.pastel, shape).border(1.dp, if (RxColors.palette.light) Yz.ink else Yz.pastel, shape) else Modifier.background(RxColors.track, shape).border(1.5.dp, Yz.mocha, shape))
             .clickable { onChange(!checked) }.padding(4.dp),
         contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart,
     ) {
-        Box(Modifier.size(22.dp).then(if (checked) Modifier.background(Yz.ink, shape) else Modifier.border(1.5.dp, Yz.mocha, shape)))
+        Box(Modifier.size(22.dp).then(if (checked) Modifier.background(Yz.ink, shape) else Modifier.background(Yz.beige.copy(alpha = .35f), shape).border(1.5.dp, Yz.beige, shape)))
     }
 }
 
@@ -247,7 +259,8 @@ fun YzButton(text: String, modifier: Modifier = Modifier, primary: Boolean = fal
     val alpha = if (enabled) 1f else 0.4f
     Box(
         modifier.clip(SlantShape)
-            .then(if (primary) Modifier.background(Yz.pastel.copy(alpha = alpha), SlantShape) else Modifier.border(1.5.dp, (if (danger) Yz.danger else Yz.keyline).copy(alpha = 0.8f * alpha), SlantShape))
+            .then(if (primary) Modifier.background(Yz.pastel.copy(alpha = alpha), SlantShape).border(1.dp, (if (RxColors.palette.light) Yz.ink else Yz.pastel).copy(alpha = alpha), SlantShape)
+                else Modifier.border(1.5.dp, (if (danger) Yz.danger else Yz.slabLine).copy(alpha = alpha), SlantShape))
             .clickable(enabled = enabled, onClick = onClick).heightIn(min = 40.dp).padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center,
     ) {

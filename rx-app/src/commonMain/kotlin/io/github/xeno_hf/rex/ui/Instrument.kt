@@ -39,11 +39,13 @@ object Inst {
     val sakura = Color(0xFFFEDFE1); val beige = Color(0xFFD7C4BB); val rose = Color(0xFFDC9FB4)
     val white = Color(0xFFFFFFFF); val aqua = Color(0xFFA5DEE4); val mocha = Color(0xFF9E7A7A)
     // 衍生
-    val bg = Color(0xFF120D0E); val surf1 = Color(0xFF1B1415); val surf2 = Color(0xFF241B1D); val pod = Color(0xFF1E1416)
-    val ink = Color(0xFF2B1F21); val labelDay = Color(0xFF6B4F50); val red = Color(0xFFFF4D6D); val redDay = Color(0xFFC2183C)
-    val roseLine = Color(0xFFA8506F); val aquaLine = Color(0xFF1F6670); val channel = Color(0xFF120D0E)
-    val rimTop = Color(0xFF4A3A3D); val rimBottom = Color(0xFF0E090A)
-    val segOff = mocha.copy(alpha = 0.16f); val ghost = red.copy(alpha = 0.25f)
+    // 夜櫻 A2「粉嫩櫻色環狀」：玫瑰黑紫底、粉色系轉速環；不用黃色，紅色只有一種
+    val bg = Color(0xFF200D19); val surf1 = Color(0xFF33192A); val surf2 = Color(0xFF3E1E30); val pod = Color(0xFF3A1B2C)
+    val ink = Color(0xFF1C0E15); val labelDay = Color(0xFF7A4656); val red = Color(0xFFE5484D); val redDay = Color(0xFFE5484D)
+    val roseLine = Color(0xFFA8406A); val aquaLine = Color(0xFFA8406A); val channel = Color(0xFF10050C)
+    val rimTop = Color(0xFF714459); val rimBottom = Color(0xFF12060E)
+    val petal = Color(0xFFF7C1D0); val hotRose = Color(0xFFE17481); val band = Color(0xFF12060E)
+    val segOff = rose.copy(alpha = 0.15f); val ghost = red.copy(alpha = 0.24f)
 
     const val T10 = 0.17632698f // tan 10°
     const val SKEW = -0.17632698f // 文字 −10° 斜（Android/Skia 的負值＝往右斜）
@@ -58,8 +60,8 @@ data class PagePal(
     val chipStroke: Color, val rec: Color, val caution: Color, val fault: Color,
 ) {
     companion object {
-        val NIGHT = PagePal(true, Inst.bg, Inst.sakura, Inst.beige, Inst.surf1, Inst.aqua, Inst.mocha.copy(alpha = .16f), Inst.mocha.copy(alpha = .28f), Inst.rose, Inst.rose, Inst.red)
-        val DAY = PagePal(false, Inst.sakura, Inst.ink, Inst.labelDay, Color.White, Inst.aquaLine, Inst.mocha.copy(alpha = .18f), Inst.mocha.copy(alpha = .28f), Inst.roseLine, Inst.roseLine, Inst.redDay)
+        val NIGHT = PagePal(true, Inst.bg, Inst.sakura, Inst.rose, Inst.surf1, Inst.petal, Inst.petal.copy(alpha = .13f), Color(0xFF6E4059), Inst.sakura, Inst.rose, Inst.red)
+        val DAY = PagePal(false, Inst.sakura, Color(0xFF1F0E16), Inst.labelDay, Color.White, Inst.roseLine, Color(0xFFEDB5C3).copy(alpha = .55f), Color(0xFFE6B3C0), Inst.roseLine, Inst.rose, Inst.redDay)
     }
     fun of(lv: Lv) = when (lv) { Lv.OK -> num; Lv.CAUTION -> caution; Lv.FAULT -> fault }
 }
@@ -74,10 +76,10 @@ object RevScale {
 
     /** 色階門檻依紅線 R 計算。 */
     fun color(rpmLow: Double, redline: Int): Color = when {
-        rpmLow < redline - 5000 -> Inst.aqua.copy(alpha = .55f)
-        rpmLow < redline - 2000 -> Inst.aqua
-        rpmLow < redline - 1000 -> Inst.white
-        rpmLow < redline - 500 -> Inst.rose
+        rpmLow < redline - 5000 -> Inst.rose.copy(alpha = .6f)
+        rpmLow < redline - 2000 -> Inst.petal
+        rpmLow < redline - 1000 -> Inst.rose
+        rpmLow < redline - 500 -> Inst.hotRose
         else -> Inst.red
     }
 }
@@ -261,15 +263,15 @@ private fun DrawScope.needle(cx: Float, cy: Float, ang: Float, glowOn: Boolean, 
         if (hub) drawPath(Path().apply { moveTo(cx, cy - 2.6f); lineTo(cx - 13, cy - 4); lineTo(cx - 26, cy - 4); lineTo(cx - 26, cy + 4); lineTo(cx - 13, cy + 4); lineTo(cx, cy + 2.6f); close() }, Inst.rose)
     }
     if (hub) {
-        drawCircle(Brush.radialGradient(listOf(Color(0xFF3A2C2F), Inst.bg), center = Offset(cx - 5, cy - 6), radius = 17f), 17f, Offset(cx, cy))
+        drawCircle(Brush.radialGradient(listOf(Color(0xFF42283A), Color(0xFF13090E)), center = Offset(cx - 5, cy - 6), radius = 17f), 17f, Offset(cx, cy))
         drawCircle(Inst.rose, 15.5f, Offset(cx, cy), style = Stroke(3f))
         drawCircle(Color.Black.copy(alpha = .5f), 13.5f, Offset(cx, cy), style = Stroke(1f))
-        drawCircle(Inst.aqua, 4f, Offset(cx, cy))
+        drawCircle(Inst.sakura, 4f, Offset(cx, cy))
     }
 }
 
 /** MAP 顏色：1 水藍、2 玫瑰、3 白。 */
-fun mapFill(m: Int?) = when (m) { 1 -> Inst.aqua; 3 -> Inst.white; else -> Inst.rose }
+fun mapFill(m: Int?) = Inst.rose
 
 // ---------------------------------------------------------------- C「KOSO」
 
@@ -340,7 +342,7 @@ fun DrawScope.dialCorsa(tm: TextMeasurer, d: DialData, night: Boolean) {
     val cx = 206f; val cy = 196f
     bezel(cx, cy, 188f)
     drawPath(sectorPath(cx, cy, 164f, 186f, 132.6f, 407.4f), Inst.channel)
-    ledRing(d, cx, cy, 170f, 182f, night, revColor = Inst.aqua, cap = true)
+    ledRing(d, cx, cy, 170f, 182f, night, revColor = Inst.sakura, cap = true)
     chapterRing(cx, cy, 161.75f)
     face(cx, cy, 160f)
     drawCircle(Inst.beige.copy(alpha = .25f), 96f, Offset(cx, cy), style = Stroke(1f))
@@ -378,7 +380,7 @@ fun DrawScope.dialPit(tm: TextMeasurer, d: DialData, night: Boolean) {
     val segL = floatArrayOf(38f, 68f, 98f, 128f, 158f); val segR = floatArrayOf(348f, 318f, 288f, 258f, 228f)
     val R = d.redline
     val thr = intArrayOf(R - 4000, R - 3000, R - 2000, R - 1200, R - 600)
-    val stage = listOf(Inst.aqua, Inst.aqua, Inst.white, Inst.rose, Inst.red)
+    val stage = listOf(Inst.rose.copy(alpha = .6f), Inst.petal, Inst.rose, Inst.hotRose, Inst.red)
     val flashing = d.revFlash || d.wotFlash
     val dim = if (d.flash.dimmed) .2f else 1f
     for (i in 0 until 5) {
@@ -448,7 +450,7 @@ fun DrawScope.wingGauge(tm: TextMeasurer, d: DialData, rows: List<WingRow>) {
     val X = 0f; val Y = 6f; val W = 120f; val H = 116f
     // 陰影
     translate(0f, 2f) { drawPath(chamPath(X, Y, W, H, 14f), Color.Black.copy(alpha = .25f)); drawCircle(Color.Black.copy(alpha = .25f), 65f, Offset(148f, 64f)) }
-    drawPath(chamPath(X, Y, W, H, 14f), Brush.verticalGradient(listOf(Color(0xFF1F1718), Inst.bg), startY = Y, endY = Y + H))
+    drawPath(chamPath(X, Y, W, H, 14f), Brush.verticalGradient(listOf(Color(0xFF3A1B2C), Inst.bg), startY = Y, endY = Y + H))
     drawPath(chamPath(X + .75f, Y + .75f, W - 1.5f, H - 1.5f, 13.7f), edge, style = Stroke(if (worst == Lv.FAULT) 2.5f else 1.5f))
     rows.take(3).forEachIndexed { i, r ->
         val top = Y + 8 + i * 35

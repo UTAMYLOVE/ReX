@@ -89,14 +89,14 @@ val Topaz = RxPalette(
  */
 val Nippon = RxPalette(
     id = "nippon", light = true,
-    bg = Color(0xFFFEDFE1), bg2 = Color(0xFFFFFFFF),
-    card = Color(0xFFFFFFFF), cardHi = Color(0xFFFEDFE1),
-    line = Color(0xFFD7C4BB), track = Color(0xFFEFE4DE),
-    text = Color(0xFF4E3838), muted = Color(0xFF9E7A7A),
-    brand = Color(0xFFDC9FB4), brand2 = Color(0xFFA5DEE4), brandInk = Color(0xFFA8506F), onBrand = Color(0xFF4E3838),
+    bg = Color(0xFFFEDFE1), bg2 = Color(0xFFFEDFE1),
+    card = Color(0xFFFFFFFF), cardHi = Color(0xFFFFF5F6),
+    line = Color(0xFFEAB9C6), track = Color(0xFFF4CBD4),
+    text = Color(0xFF1F0E16), muted = Color(0xFF8C6672),
+    brand = Color(0xFFDC9FB4), brand2 = Color(0xFFF7C1D0), brandInk = Color(0xFFA8406A), onBrand = Color(0xFF1C0E15),
     partner = Color(0xFFA5DEE4),
-    accent = Color(0xFF2F8F9B),
-    warn = Color(0xFFA8506F), danger = Color(0xFFC93A52),
+    accent = Color(0xFFA8406A),
+    warn = Color(0xFFA8406A), danger = Color(0xFFE5484D),
     traces = listOf(Color(0xFF2F8F9B), Color(0xFFA8506F), Color(0xFF9E7A7A), Color(0xFFB8741F), Color(0xFF5F6FB5), Color(0xFF4F8A5C)),
 )
 
@@ -106,14 +106,14 @@ val Nippon = RxPalette(
  */
 val Yozakura = RxPalette(
     id = "yozakura", light = false,
-    bg = Color(0xFF120D0E), bg2 = Color(0xFF181112),
-    card = Color(0xFF1B1415), cardHi = Color(0xFF241B1D),
-    line = Color(0xFF3A2C2E), track = Color(0xFF2A1F21),
-    text = Color(0xFFFEDFE1), muted = Color(0xFFB79C9A),
-    brand = Color(0xFFDC9FB4), brand2 = Color(0xFFA5DEE4), brandInk = Color(0xFFDC9FB4), onBrand = Color(0xFF120D0E),
+    bg = Color(0xFF200D19), bg2 = Color(0xFF200D19),
+    card = Color(0xFF33192A), cardHi = Color(0xFF3E2233),
+    line = Color(0xFF56304A), track = Color(0xFF4A2A3C),
+    text = Color(0xFFFFF1F3), muted = Color(0xFFC29BAB),
+    brand = Color(0xFFDC9FB4), brand2 = Color(0xFFF7C1D0), brandInk = Color(0xFFF7C1D0), onBrand = Color(0xFF1C0E15),
     partner = Color(0xFFA5DEE4),
-    accent = Color(0xFFA5DEE4),
-    warn = Color(0xFFDC9FB4), danger = Color(0xFFFF4D6D),
+    accent = Color(0xFFF7C1D0),
+    warn = Color(0xFFDC9FB4), danger = Color(0xFFE5484D),
     traces = listOf(Color(0xFFA5DEE4), Color(0xFFDC9FB4), Color(0xFFFEDFE1), Color(0xFFD7C4BB), Color(0xFFFF4D6D), Color(0xFF9E7A7A)),
 )
 

@@ -116,6 +116,10 @@ fun main(args: Array<String>) {
     repo.setTheme(ThemeChoice.NIPPON)
     shot("app_monitor_day", 412, 892, ThemeChoice.NIPPON, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
     repo.setTheme(ThemeChoice.YOZAKURA)
+    // 小螢幕（360 dp 寬）檢查有沒有擠爆
+    shot("app_monitor_360", 360, 760, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
+    shot("app_settings_360", 360, 760, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Settings") }
+    shot("app_health_360", 360, 760, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Health") }
     repo.openRequest.value = Repo.OPEN_MAP
     shot("app_map_window", 412, 892, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
     repo.openRequest.value = null

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -114,47 +115,38 @@ private fun AiPanel(dir: kotlinx.io.files.Path) {
     }
 }
 
-/** 健檢趨勢：最近每趟騎乘的總分走勢，加上最近幾趟的摘要；點一趟看完整報告。 */
+/** 健檢趨勢：最近 8 趟的分數，一趟一根分段柱（像液晶條）；80 分以下用玫瑰色板標出來。點柱子看那一趟的報告。 */
 @Composable
 fun HealthTrend(onOpen: (kotlinx.io.files.Path) -> Unit) {
     val repo = LocalRepo.current
     val history by repo.healthHistory.collectAsState()
     if (history.isEmpty()) return
-    val recent = history.take(20).reversed()
-    Column(
-        Modifier.fillMaxWidth().background(RxColors.card, YzCardShape).padding(horizontal = 16.dp, vertical = 14.dp),
-    ) {
-        Text(stringResource(R.string.trend_title, history.size), fontWeight = FontWeight.Black, fontSize = 16.sp)
-        Spacer(Modifier.height(6.dp))
-        val lineColor = RxColors.accent
-        val grid = RxColors.track
-        val warn = RxColors.warn
-        Canvas(Modifier.fillMaxWidth().height(56.dp)) {
-            drawLine(grid, androidx.compose.ui.geometry.Offset(0f, size.height * .3f), androidx.compose.ui.geometry.Offset(size.width, size.height * .3f), 1f)
-            if (recent.size >= 2) {
-                val p = Path()
-                recent.forEachIndexed { i, e ->
-                    val x = size.width * i / (recent.size - 1); val y = size.height * (1f - e.report.score / 100f)
-                    if (i == 0) p.moveTo(x, y) else p.lineTo(x, y)
-                }
-                drawPath(p, lineColor, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
-            }
+    val recent = history.take(8).reversed()
+    val light = RxColors.palette.light
+    YzSectionHeader(1, stringResource(R.string.trend_title, history.size))
+    Column(Modifier.fillMaxWidth().background(RxColors.card, YzCardShape).padding(horizontal = 12.dp, vertical = 12.dp)) {
+        Row(Modifier.fillMaxWidth().height(150.dp)) {
             recent.forEachIndexed { i, e ->
-                val x = if (recent.size == 1) size.width / 2 else size.width * i / (recent.size - 1)
-                val y = size.height * (1f - e.report.score / 100f)
-                drawCircle(if (e.report.level == EngineHealth.Level.OK) lineColor else warn, 3.dp.toPx(), androidx.compose.ui.geometry.Offset(x, y))
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        history.take(5).forEach { e ->
-            val top = e.report.findings.firstOrNull { it.level != EngineHealth.Level.INFO }
-            Row(Modifier.fillMaxWidth().clickable { onOpen(e.dir) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${e.report.score}", style = digits(20.sp, FontWeight.ExtraBold), color = levelColor(e.report.level), modifier = Modifier.width(44.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(rideTitle(e.dir.name), fontSize = 12.sp, color = RxColors.muted)
-                    Text(top?.let(::findingString) ?: stringResource(R.string.health_none), fontSize = 13.sp, maxLines = 2)
+                val low = e.report.score < 80
+                val latest = i == recent.lastIndex
+                Column(Modifier.weight(1f).fillMaxHeight().clickable { onOpen(e.dir) }, horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "${e.report.score}", style = digits(15.sp, FontWeight.ExtraBold),
+                        color = if (low) Yz.ink else if (light) RxColors.text else Yz.pastel,
+                        modifier = if (low) Modifier.background(Yz.rose, SlantShape).padding(horizontal = 5.dp) else Modifier,
+                    )
+                    val lit = if (low) Yz.rose else if (light) Color(0xFFA8406A) else if (latest) Yz.pastel else Yz.petal
+                    val ghost = (if (light) Color(0xFFEDB5C3) else Yz.petal).copy(alpha = if (light) .45f else .13f)
+                    Canvas(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 7.dp, vertical = 5.dp)) {
+                        val n = 14; val gap = 2.dp.toPx(); val bh = (size.height - gap * (n - 1)) / n
+                        val on = kotlin.math.round(e.report.score / 100f * n).toInt()
+                        for (k in 0 until n) {
+                            val y = size.height - (k + 1) * bh - k * gap
+                            drawRect(if (k < on) lit else ghost, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Size(size.width, bh))
+                        }
+                    }
+                    Text(rideDay(e.dir.name), fontSize = 10.sp, color = if (latest) RxColors.text else RxColors.muted, fontWeight = if (latest) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
                 }
-                if (e.ai != null) Badge("AI", RxColors.brandInk)
             }
         }
     }
