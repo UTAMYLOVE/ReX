@@ -378,4 +378,5 @@
     <string name="yz_back">返回</string>
     <string name="yz_rides">騎乘紀錄（%d）</string>
     <string name="yz_recording_now">這趟正在錄製</string>
+    <string name="yz_minutes">%d 分鐘</string>
 </resources>

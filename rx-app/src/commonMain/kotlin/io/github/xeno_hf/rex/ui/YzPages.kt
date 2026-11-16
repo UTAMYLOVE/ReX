@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
@@ -16,7 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -61,22 +65,72 @@ import rx.session.WallClock
 @Composable
 internal expect fun YzBack(enabled: Boolean = true, onBack: () -> Unit)
 
-/** 一個設定區塊：標題＋卡片。 */
+/** 一個設定區塊：編號路牌標題＋切角卡片。 */
 @Composable
-internal fun YzSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Text(title, color = RxColors.brandInk, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp))
-    Column(
-        Modifier.fillMaxWidth().background(RxColors.card, RoundedCornerShape(14.dp)).border(1.dp, RxColors.line, RoundedCornerShape(14.dp)).padding(14.dp),
-        content = content,
-    )
+internal fun YzSection(index: Int?, title: String, content: @Composable ColumnScope.() -> Unit) {
+    YzSectionHeader(index, title)
+    YzCard(content = content)
 }
 
 @Composable
-internal fun YzSwitchRow(text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-        Text(text, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange)
+internal fun YzSwitchRow(text: String, checked: Boolean, divider: Boolean = false, onChange: (Boolean) -> Unit) {
+    YzRow(text, divider) { YzSwitch(checked, onChange) }
+}
+
+/** 健檢分頁的車牌式日期牌：上排日期（不是今年加年份、同一分鐘第二趟加 #2），下排大字時間。 */
+@Composable
+internal fun YzDatePlate(folder: String) {
+    val m = Regex("""^([A-Za-z]+)_(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})\d{2}(?:_(\d+))?$""").find(folder)
+    val top: String; val big: String
+    if (m == null) { top = ""; big = folder } else {
+        val (_, y, mo, d, h, mi, n) = m.destructured
+        top = (if (y != WallClock.format(WallClock.nowMs(), "yyyy")) "$y/" else "") + "$mo/$d" + (if (n.isNotEmpty()) " #$n" else "")
+        big = "$h:$mi"
     }
+    Box(Modifier.border(1.5.dp, Yz.keyline.copy(alpha = 0.8f)).padding(3.dp).border(1.dp, RxColors.line).padding(horizontal = 12.dp, vertical = 4.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(top, color = RxColors.muted, style = digits(12.sp, FontWeight.SemiBold))
+            Text(big, color = RxColors.text, style = digits(24.sp, FontWeight.ExtraBold))
+        }
+    }
+}
+
+/** 分數號碼牌（比賽號碼布）：好＝櫻粉、注意＝玫瑰、危險＝紅底白字。 */
+@Composable
+internal fun YzScoreBoard(score: Int, level: rx.session.EngineHealth.Level) {
+    val (bg, fg) = when (level) {
+        rx.session.EngineHealth.Level.DANGER -> Yz.danger to Color.White
+        rx.session.EngineHealth.Level.WARN -> Yz.rose to Yz.ink
+        else -> Yz.pastel to Yz.ink
+    }
+    Box(Modifier.background(bg, CutCornerShape(topEnd = 8.dp)).padding(horizontal = 10.dp, vertical = 2.dp)) {
+        Text("$score", color = fg, style = digits(30.sp, FontWeight.ExtraBold))
+    }
+}
+
+/** 各系統的「檢查合格貼紙」：✓ 合格、✕ 有問題（玫瑰／紅）。 */
+@Composable
+internal fun YzPassChip(label: String, level: rx.session.EngineHealth.Level) {
+    val bad = level == rx.session.EngineHealth.Level.WARN || level == rx.session.EngineHealth.Level.DANGER
+    val fill = when (level) { rx.session.EngineHealth.Level.DANGER -> Yz.danger; rx.session.EngineHealth.Level.WARN -> Yz.rose; else -> null }
+    val shape = CutCornerShape(bottomEnd = 6.dp)
+    Row(
+        Modifier.then(if (fill != null) Modifier.background(fill, shape) else Modifier.border(1.dp, RxColors.line, shape)).padding(horizontal = 8.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(if (bad) "✕" else "✓", color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else Yz.aqua, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.width(4.dp))
+        Text(label, color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else RxColors.text.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+private fun areaLabel(a: rx.session.EngineHealth.Area): Int? = when (a) {
+    rx.session.EngineHealth.Area.COOLING -> R.string.health_a_cooling
+    rx.session.EngineHealth.Area.FUEL -> R.string.health_a_fuel
+    rx.session.EngineHealth.Area.ELECTRICAL -> R.string.health_a_electrical
+    rx.session.EngineHealth.Area.IGNITION -> R.string.health_a_ignition
+    rx.session.EngineHealth.Area.FAULTS -> R.string.health_a_faults
+    rx.session.EngineHealth.Area.IDLE -> null
 }
 
 @Composable
@@ -135,36 +189,46 @@ fun YzHealthTab() {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp), state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item(key = "top") { Spacer(Modifier.height(4.dp)) }
         item(key = "trend") { HealthTrend { d -> report = d } }
-        item(key = "title") { Text(stringResource(R.string.yz_rides, list.size), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp, start = 4.dp)) }
+        item(key = "title") { YzSectionHeader(null, stringResource(R.string.yz_rides, list.size)) }
         items(list, key = { it.dir.name }) { s ->
             val live = rec?.dir == s.dir
             val entry = history.firstOrNull { it.dir == s.dir }
-            Column(Modifier.fillMaxWidth().background(RxColors.card, RoundedCornerShape(14.dp)).border(1.dp, RxColors.line, RoundedCornerShape(14.dp)).padding(14.dp)) {
+            YzCard(accent = if (s === list.firstOrNull()) Yz.rose else null) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    YzDatePlate(s.dir.name)
+                    Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(rideTitle(s.dir.name), style = digits(18.sp, FontWeight.Bold))
+                        val top = entry?.report?.findings?.firstOrNull { it.level != rx.session.EngineHealth.Level.INFO }
                         Text(
-                            if (live) stringResource(R.string.yz_recording_now)
-                            else if (s.rounds != null) "${rx.protocol.Fmt.fixed(s.sizeBytes / 1e6, 1)} MB"
-                            else stringResource(R.string.rec_unfinished, s.sizeBytes / 1e6),
-                            color = if (live) RxColors.danger else if (s.rounds != null) RxColors.muted else RxColors.warn, fontSize = 12.sp,
+                            when {
+                                live -> stringResource(R.string.yz_recording_now)
+                                entry != null -> stringResource(R.string.yz_minutes, (entry.report.runningSec / 60).toInt())
+                                s.rounds != null -> "${rx.protocol.Fmt.fixed(s.sizeBytes / 1e6, 1)} MB"
+                                else -> stringResource(R.string.rec_unfinished, s.sizeBytes / 1e6)
+                            },
+                            color = if (live) Yz.rose else RxColors.text, fontSize = 15.sp, fontWeight = FontWeight.Bold,
                         )
+                        if (entry != null) Text(top?.let(::findingString) ?: stringResource(R.string.health_none), color = RxColors.muted, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    entry?.let { e ->
-                        Text("${e.report.score}", style = digits(30.sp, FontWeight.ExtraBold), color = levelColor(e.report.level))
-                        Text(" 分", color = RxColors.muted, fontSize = 12.sp)
+                    entry?.let { e -> Spacer(Modifier.width(8.dp)); YzScoreBoard(e.report.score, e.report.level) }
+                }
+                entry?.let { e ->
+                    androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        e.report.areas.filter { it.checked }.forEach { a -> areaLabel(a.area)?.let { YzPassChip(stringResource(it), a.level) } }
                     }
                 }
                 entry?.ai?.let { ai ->
-                    Text(ai.replace('\n', ' '), fontSize = 13.sp, color = RxColors.text, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
-                }
-                if (!live) Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (Fs.size(Path(s.dir, "decoded.loga")) > 0) {
-                        OutlinedButton(onClick = { report = s.dir }) { Text(stringResource(R.string.health_title), color = RxColors.brandInk) }
+                    Row(Modifier.padding(top = 10.dp)) {
+                        Text("AI", color = Yz.ink, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.background(Yz.rose).padding(horizontal = 4.dp, vertical = 1.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(ai.replace('\n', ' '), fontSize = 13.sp, color = RxColors.text, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
                     }
+                }
+                if (!live) Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    if (Fs.size(Path(s.dir, "decoded.loga")) > 0) YzButton(stringResource(R.string.health_title)) { report = s.dir }
+                    YzButton(stringResource(R.string.rec_share_public)) { confirmShare = s }
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = { confirmShare = s }) { Text(stringResource(R.string.rec_share_public)) }
-                    TextButton(onClick = { confirmDelete = s }) { Text(stringResource(R.string.delete), color = RxColors.danger) }
+                    TextButton(onClick = { confirmDelete = s }) { Text(stringResource(R.string.delete), color = Yz.danger, fontWeight = FontWeight.Bold) }
                 }
             }
         }
@@ -228,30 +292,35 @@ fun YzSettings(onEditConnection: () -> Unit, onStatus: () -> Unit) {
     val target by repo.target.collectAsState()
     val stopped by repo.userStopped.collectAsState()
     Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 12.dp)) {
-        YzSection(stringResource(R.string.yz_conn_title)) {
-            YzStatusChip(onClick = onStatus)
-            Text(yzStateExplain(state, target != null, stopped), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
-            Mono("${stringResource(R.string.conn_host)}  ${repo.host}", RxColors.muted)
-            OutlinedButton(onClick = onEditConnection, modifier = Modifier.padding(top = 6.dp)) { Text(stringResource(R.string.yz_conn_settings), color = RxColors.text) }
+        YzSection(1, stringResource(R.string.yz_conn_title)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                YzStatusChip(onClick = onStatus)
+                Spacer(Modifier.width(10.dp))
+                Mono(repo.host, RxColors.muted)
+            }
+            Text(yzStateExplain(state, target != null, stopped), fontSize = 14.sp, color = RxColors.text, modifier = Modifier.padding(top = 10.dp, bottom = 10.dp))
+            YzButton(stringResource(R.string.yz_conn_settings), onClick = onEditConnection)
         }
         YzMonitorSettings()
         YzOverlaySettings()
         YzAiSettings()
-        YzSection(stringResource(R.string.set_look)) {
+        YzSection(5, stringResource(R.string.set_look)) {
             val theme by repo.theme.collectAsState()
             val choices = listOf(ThemeChoice.SYSTEM, ThemeChoice.YOZAKURA, ThemeChoice.NIPPON).let { if (theme in it) it else it + theme }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                choices.forEach { t -> FilterChip(selected = theme == t, onClick = { repo.setTheme(t) }, label = { Text(stringResource(t.label)) }) }
-            }
+            YzSegmented(choices.map { it to stringResource(it.label) }, theme, { repo.setTheme(it) })
         }
-        YzSection(stringResource(R.string.set_about)) {
-            Text("${stringResource(R.string.app_name)} ${repo.platform.appVersion}", fontWeight = FontWeight.Bold)
+        YzSection(6, stringResource(R.string.set_about)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                YzDecal(scale = 0.8f)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("夜櫻 Yozakura", color = RxColors.text, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text(repo.platform.appVersion, color = RxColors.muted, style = digits(13.sp, FontWeight.SemiBold))
+                }
+            }
             YzHint(stringResource(R.string.yz_about))
             YzHint(stringResource(R.string.yz_source))
-            Row(Modifier.fillMaxWidth().clickable { showLog = true }.padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.yz_conn_log), modifier = Modifier.weight(1f))
-                Text("›", color = RxColors.muted, fontSize = 18.sp)
-            }
+            YzRow(stringResource(R.string.yz_conn_log), divider = true, onClick = { showLog = true }) { Text("›", color = RxColors.muted, fontSize = 20.sp) }
         }
         Spacer(Modifier.height(20.dp))
     }
@@ -263,17 +332,13 @@ private fun YzMonitorSettings() {
     val style by repo.monStyle.collectAsState()
     val red by repo.redline.collectAsState()
     val flash by repo.flashOn.collectAsState()
-    YzSection(stringResource(R.string.set_monitor)) {
-        Text(stringResource(R.string.set_style))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            MonStyle.entries.forEach { st -> FilterChip(selected = style == st, onClick = { repo.setMonStyle(st) }, label = { Text(stringResource(st.label)) }) }
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(stringResource(R.string.set_redline))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(9000, 9500, 10000, 10500, 11000).forEach { r -> FilterChip(selected = red == r, onClick = { repo.setRedline(r) }, label = { Text(rx.protocol.Fmt.grouped(r.toLong())) }) }
-        }
-        YzSwitchRow(stringResource(R.string.set_flash), flash) { repo.setFlashOn(it) }
+    YzSection(2, stringResource(R.string.set_monitor)) {
+        Text(stringResource(R.string.set_style), color = RxColors.text, fontSize = 16.sp, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
+        YzSegmented(MonStyle.entries.map { it to stringResource(it.label) }, style, { repo.setMonStyle(it) })
+        Text(stringResource(R.string.set_redline), color = RxColors.text, fontSize = 16.sp, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
+        YzSegmented(listOf(9000, 9500, 10000, 10500, 11000).map { it to rx.protocol.Fmt.grouped(it.toLong()) }, red, { repo.setRedline(it) })
+        Spacer(Modifier.height(8.dp))
+        YzSwitchRow(stringResource(R.string.set_flash), flash, divider = true) { repo.setFlashOn(it) }
         YzHint(stringResource(R.string.set_tiles_hint))
     }
 }
@@ -288,18 +353,16 @@ private fun YzOverlaySettings() {
     var picking by remember { mutableStateOf<Int?>(null) }
     // 從系統設定回來時重新檢查權限
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1000); permitted = repo.platform.overlayPermitted() } }
-    YzSection(stringResource(R.string.set_overlay)) {
+    YzSection(3, stringResource(R.string.set_overlay)) {
         YzSwitchRow(stringResource(R.string.set_overlay_on), on) { repo.setOverlayOn(it); if (it && !permitted) repo.platform.requestOverlayPermission() }
         if (on && !permitted) {
             Text(stringResource(R.string.set_overlay_perm), color = RxColors.warn, fontSize = 12.sp)
-            OutlinedButton(onClick = { repo.platform.requestOverlayPermission() }) { Text(stringResource(R.string.set_overlay_grant), color = RxColors.text) }
+            YzButton(stringResource(R.string.set_overlay_grant), Modifier.padding(vertical = 6.dp)) { repo.platform.requestOverlayPermission() }
         }
-        Text(stringResource(R.string.set_overlay_rows), modifier = Modifier.padding(top = 4.dp))
+        Text(stringResource(R.string.set_overlay_rows), color = RxColors.muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
         rows.forEachIndexed { i, f ->
-            Row(Modifier.fillMaxWidth().clickable { picking = i }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("${i + 1}.", color = RxColors.muted, modifier = Modifier.padding(end = 8.dp))
-                Text(stringResource(f.label), modifier = Modifier.weight(1f))
-                Text(stringResource(R.string.change), color = RxColors.brandInk, fontSize = 13.sp)
+            YzRow("${i + 1}.  ${stringResource(f.label)}", divider = i > 0, onClick = { picking = i }) {
+                Text(stringResource(R.string.change) + " ›", color = Yz.rose, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
         YzHint(stringResource(R.string.set_overlay_hint))
@@ -315,14 +378,13 @@ private fun YzAiSettings() {
     val auto by repo.aiAuto.collectAsState()
     var key by remember(provider) { mutableStateOf(repo.aiKey(provider) ?: "") }
     var note by remember { mutableStateOf(repo.vehicleNote) }
-    YzSection(stringResource(R.string.set_ai)) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            AiProvider.entries.forEach { p -> FilterChip(selected = provider == p, onClick = { repo.setAiProvider(p) }, label = { Text(p.label) }) }
-        }
+    YzSection(4, stringResource(R.string.set_ai)) {
+        YzSegmented(AiProvider.entries.map { it to it.label }, provider, { repo.setAiProvider(it) }, Modifier.padding(top = 4.dp, bottom = 8.dp), minWidth = 96.dp)
         OutlinedTextField(key, { key = it; repo.setAiKey(provider, it) }, label = { Text(stringResource(R.string.set_ai_key, provider.label)) }, singleLine = true,
             visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
         OutlinedTextField(note, { note = it; repo.vehicleNote = it }, label = { Text(stringResource(R.string.set_vehicle_note)) }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
-        YzSwitchRow(stringResource(R.string.set_ai_auto), auto) { repo.setAiAuto(it) }
+        Spacer(Modifier.height(6.dp))
+        YzSwitchRow(stringResource(R.string.set_ai_auto), auto, divider = true) { repo.setAiAuto(it) }
         YzHint(stringResource(R.string.set_ai_hint))
     }
 }

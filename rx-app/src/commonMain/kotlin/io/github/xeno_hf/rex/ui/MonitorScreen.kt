@@ -38,6 +38,8 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.TextMeasurer
@@ -227,9 +229,7 @@ private fun MapWindow(onDismiss: () -> Unit) {
                 }
                 Spacer(Modifier.height(14.dp))
                 if (!unlocked) {
-                    androidx.compose.material3.OutlinedButton(onClick = { unlocked = true; repo.unlockOnce() }, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.map_win_unlock), color = RxColors.text)
-                    }
+                    YzButton(stringResource(R.string.map_win_unlock), Modifier.fillMaxWidth()) { unlocked = true; repo.unlockOnce() }
                 } else {
                     Text(stringResource(R.string.map_win_pick), fontSize = 13.sp)
                     Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -336,26 +336,39 @@ private fun DrawScope.tpsRow(tm: TextMeasurer, l: Live?, pal: PagePal) {
     }
     val pw = txt(tm, "%", 396f, 26f, 13f, pal.label, anchor = 'r')
     txt(tm, tps?.let { "${kotlin.math.round(it).toInt()}" } ?: "—", 396f - pw - 4, 26f, 28f, pal.num, FontWeight.ExtraBold, digits = true, anchor = 'r')
-    drawRect(pal.track, Offset(16f, 36f), Size(380f, 6f))
-    if (tps != null) drawRect(pal.bar, Offset(16f, 36f), Size(380f * (tps / 100).toFloat().coerceIn(0f, 1f), 6f))
+    // 20 格分段條（像 90 年代的液晶轉速條），沒亮的格子也淡淡畫出來，看得到全刻度
+    val n = 20; val gap = 3f; val bw = (380f - gap * (n - 1)) / n
+    val lit = if (tps == null) 0 else kotlin.math.ceil((tps / 100).coerceIn(0.0, 1.0) * n - 0.001).toInt()
+    for (i in 0 until n) {
+        val x = 16f + i * (bw + gap)
+        drawPath(paraPath(x, 34f, bw, 8f), if (i < lit) pal.bar else pal.track)
+    }
 }
 
-/** 系統狀態扇區（平常全暗；注意＝玫瑰外框；危險＝紅底）。 */
+/** 系統狀態：一排「檢查合格貼紙」。合格＝深底細框＋水色 ✓；注意＝玫瑰底；危險＝紅底，打 ✕。 */
 private fun DrawScope.sysRow(tm: TextMeasurer, l: Live?, ride: RideStats, pal: PagePal) {
     fun lv(vararg f: MonField) = f.maxOfOrNull { it.level(it.value(l, ride), l).ordinal }?.let { Lv.entries[it] } ?: Lv.OK
     val crank = if ((l?.v(72) ?: 0.0) > 0) Lv.CAUTION else Lv.OK
     val items = listOf(R.string.health_a_cooling to lv(MonField.TEMP), R.string.health_a_fuel to lv(MonField.AFR, MonField.TRIM),
         R.string.health_a_electrical to lv(MonField.VOLT), R.string.health_a_ignition to crank,
         R.string.health_a_faults to lv(MonField.FAULTS))
-    val x0 = 16f; val W = 380f; val H = 28f; val n = items.size
-    drawPath(chamPath(x0 + .5f, 1.5f, W - 1, H - 1, 5.8f), Inst.mocha.copy(alpha = .28f), style = Stroke(1f))
-    items.forEachIndexed { i, (label, v) ->
-        val xa = x0 + W * i / n; val xb = x0 + W * (i + 1) / n
-        if (v == Lv.FAULT) drawPath(paraPath(xa + 3, 4f, xb - xa - 6, H - 6), pal.fault)
-        else if (v == Lv.CAUTION) drawPath(paraPath(xa + 3, 4f, xb - xa - 6, H - 6), pal.caution, style = Stroke(1.5f))
-        if (i > 0) { val o = H * Inst.T10 / 2; drawLine(Inst.mocha.copy(alpha = .28f), Offset(xa + o, 5f), Offset(xa - o, H - 3), 1f) }
-        val c = when (v) { Lv.FAULT -> Color.White; Lv.CAUTION -> pal.caution; Lv.OK -> pal.label }
-        txt(tm, Strings.get(label), (xa + xb) / 2, 20.5f, 13f, c, anchor = 'c', alpha = if (v == Lv.OK) .6f else 1f)
+    val gap = 6f; val H = 28f
+    val labels = items.map { Strings.get(it.first) }
+    val natural = labels.map { textWidth(tm, it, 13f) + 30f }
+    val k = (380f - gap * (items.size - 1)) / natural.sum()
+    var x = 16f
+    items.forEachIndexed { i, (_, v) ->
+        val w = natural[i] * k
+        val p = chamPath(x, 1f, w, H - 2, 6f)
+        val fg = when (v) {
+            Lv.FAULT -> { drawPath(p, pal.fault); Color.White }
+            Lv.CAUTION -> { drawPath(p, pal.caution); if (pal.night) Inst.bg else Color.White }
+            Lv.OK -> { drawPath(p, pal.tile); drawPath(p, pal.chipStroke, style = Stroke(1f)); pal.label }
+        }
+        val mark = if (v == Lv.OK) "✓" else "✕"
+        val mw = txt(tm, mark, x + 8f, 20f, 13f, if (v == Lv.OK) pal.bar else fg, FontWeight.Black)
+        txt(tm, labels[i], x + 8f + mw + 4f, 20f, 13f, fg, FontWeight.Bold, alpha = if (v == Lv.OK) .9f else 1f)
+        x += w + gap
     }
 }
 
@@ -366,7 +379,7 @@ private fun DrawScope.rideRow(tm: TextMeasurer, recording: Boolean, ride: RideSt
     if (!recording && lastScore != null) { txt(tm, Strings.get(R.string.ride_last_health, lastScore), x, 18f, 13f, pal.num, FontWeight.SemiBold); return }
     if (!recording) { seg(Strings.get(R.string.ride_not_recording), false); return }
     val mins = ((WallClock.nowMs() - ride.startMs) / 60_000).coerceAtLeast(0)
-    seg(Strings.get(R.string.ride_recording), false)
+    x += txt(tm, Strings.get(R.string.ride_recording), x, 18f, 13f, pal.rec, FontWeight.Bold) + 8
     seg("${mins / 60}:${(mins % 60).toString().padStart(2, '0')}", true); seg("·", false)
     seg(Fmt.fixed(ride.km, 1), true); seg("km", false); seg("·", false)
     seg(Strings.get(R.string.ride_max), false); seg(rpmText(ride.maxRpm), true); seg("RPM", false)
@@ -382,6 +395,14 @@ private fun MapAlertBar(ev: Repo.MapEvent, pal: PagePal, k: Float, onOpen: () ->
             withTransform({ scale(s, s, Offset.Zero) }) {
                 val p = chamPath(0f, 0f, 380f, 40f, 10f)
                 drawPath(p, pal.tile)
+                // 上下緣粉白斜紋（警示條，不用黃黑）
+                clipPath(p) {
+                    for (band in listOf(0f, 35f)) clipRect(0f, band, 380f, band + 5f) {
+                        drawRect(if (pal.night) Inst.white else Inst.sakura, Offset(0f, band), Size(380f, 5f))
+                        var sx = -10f
+                        while (sx < 390f) { drawPath(paraPath(sx, band, 6f, 5f), pal.caution); sx += 12f }
+                    }
+                }
                 drawPath(chamPath(.75f, .75f, 378.5f, 38.5f, 9.7f), pal.caution, style = Stroke(1.5f))
                 val w = txt(tm, "◆ ${ev.from}→${ev.to}", 12f, 26f, 18f, pal.caution, FontWeight.ExtraBold, digits = true)
                 txt(tm, Strings.get(R.string.map_alert_bar, WallClock.format(ev.wallMs, "HH:mm:ss")), 12 + w + 10, 25f, 13f, pal.num)

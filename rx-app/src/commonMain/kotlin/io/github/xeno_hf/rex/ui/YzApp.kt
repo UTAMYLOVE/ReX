@@ -201,49 +201,35 @@ private fun YzRoot(startTab: String?) {
 
 @Composable
 internal fun YzWordmark(compact: Boolean = false) {
-    Column(horizontalAlignment = if (compact) Alignment.CenterHorizontally else Alignment.Start) {
-        Text(stringResource(R.string.app_name), color = RxColors.brand, fontSize = if (compact) 20.sp else 24.sp, fontWeight = FontWeight.Black, lineHeight = if (compact) 22.sp else 26.sp)
-        Text("YOZAKURA", color = RxColors.muted, style = digits(if (compact) 7.sp else 8.sp, FontWeight.Bold).copy(letterSpacing = 2.sp))
-    }
+    if (compact) YzStickerWordmark(size = 18) else YzStickerWordmark()
 }
 
+/** 頂列：貼紙字標＋名牌＋斜條，右邊是連線狀態（點它開連線視窗；沒連線時在視窗裡按連線）。 */
 @Composable
 private fun YzTopBar(onStatus: () -> Unit) {
-    val repo = LocalRepo.current
-    val target by repo.target.collectAsState()
-    val connect = rememberYzConnect()
-    Row(
-        Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-            .height(60.dp).padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        YzWordmark()
-        Spacer(Modifier.width(14.dp))
+    YzBanner(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
         YzStatusChip(onClick = onStatus)
-        Spacer(Modifier.weight(1f))
-        if (target == null) Button(onClick = connect) { Text(stringResource(R.string.connect)) }
     }
 }
 
+/** 底部頁籤：上緣細線；選中的頁籤上方一段 10° 斜的櫻粉條、字變粗白。 */
 @Composable
 private fun YzTabBar(tab: YzTab, onSelect: (YzTab) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(RxColors.card)
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).height(62.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        YzTab.entries.forEach { t ->
-            val sel = tab == t
-            val tint = if (sel) RxColors.brandInk else RxColors.muted
-            Column(
-                Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = null, indication = null) { onSelect(t) },
-                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-            ) {
-                Box(Modifier.size(56.dp, 28.dp).clip(RoundedCornerShape(14.dp)).background(if (sel) RxColors.brand.copy(alpha = 0.18f) else Color.Transparent), contentAlignment = Alignment.Center) {
-                    Icon(t.icon, null, tint = tint, modifier = Modifier.size(22.dp))
+    Column(Modifier.fillMaxWidth().background(if (RxColors.palette.light) Color.White else Color(0xFF0E080B))
+        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(RxColors.line))
+        Row(Modifier.fillMaxWidth().height(60.dp), verticalAlignment = Alignment.CenterVertically) {
+            YzTab.entries.forEach { t ->
+                val sel = tab == t
+                val tint = if (sel) RxColors.text else RxColors.muted
+                Box(Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = null, indication = null) { onSelect(t) }) {
+                    if (sel) Box(Modifier.align(Alignment.TopCenter).size(64.dp, 4.dp).background(Yz.rose, SlantShape))
+                    Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(t.icon, null, tint = if (sel) Yz.rose else tint, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(t.label), color = tint, fontSize = 16.sp, fontWeight = if (sel) FontWeight.Black else FontWeight.Medium, maxLines = 1)
+                    }
                 }
-                Spacer(Modifier.height(2.dp))
-                Text(stringResource(t.label), color = tint, fontSize = 11.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
             }
         }
     }
@@ -251,28 +237,27 @@ private fun YzTabBar(tab: YzTab, onSelect: (YzTab) -> Unit) {
 
 @Composable
 private fun YzRailItem(t: YzTab, selected: Boolean, onClick: () -> Unit) {
-    val c = if (selected) RxColors.brandInk else RxColors.muted
-    Column(
-        Modifier.width(60.dp).clip(RoundedCornerShape(14.dp)).background(if (selected) RxColors.brand.copy(alpha = 0.16f) else Color.Transparent)
-            .clickable(onClick = onClick).padding(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Icon(t.icon, null, tint = c, modifier = Modifier.size(22.dp))
-        Text(stringResource(t.label), fontSize = 11.sp, lineHeight = 14.sp, color = c)
+    val c = if (selected) RxColors.text else RxColors.muted
+    Box(Modifier.width(64.dp).clickable(onClick = onClick).padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+        if (selected) Box(Modifier.align(Alignment.CenterStart).size(4.dp, 36.dp).background(Yz.rose, SlantShape))
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(t.icon, null, tint = if (selected) Yz.rose else c, modifier = Modifier.size(22.dp))
+            Text(stringResource(t.label), fontSize = 12.sp, lineHeight = 15.sp, color = c, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium)
+        }
     }
 }
 
 // ---------------- 連線狀態 ----------------
 
-/** 狀態的顏色與短字（頂列 chip 用）。 */
+/** 狀態的顏色、短字、要不要斜線紋（有問題才有）。注意＝玫瑰粉，斷線＝紅，不用黃色。 */
 @Composable
-private fun yzState(state: SessionState, stopped: Boolean): Pair<Color, String> = when (state) {
-    SessionState.Streaming -> RxColors.accent to stringResource(R.string.st_connected)
-    is SessionState.Arming -> RxColors.warn to stringResource(R.string.st_connecting)
-    is SessionState.NoBroadcast -> RxColors.warn to stringResource(R.string.st_waiting)
-    is SessionState.Connecting -> RxColors.warn to stringResource(R.string.st_connecting)
-    is SessionState.Reconnecting -> RxColors.danger to stringResource(R.string.st_reconnecting)
-    else -> RxColors.muted to stringResource(if (stopped) R.string.yz_idle_stopped else R.string.not_connected)
+private fun yzState(state: SessionState, stopped: Boolean): Triple<Color, String, Boolean> = when (state) {
+    SessionState.Streaming -> Triple(Yz.aqua, stringResource(R.string.st_connected), false)
+    is SessionState.Arming -> Triple(Yz.caution, stringResource(R.string.st_connecting), true)
+    is SessionState.NoBroadcast -> Triple(Yz.caution, stringResource(R.string.st_waiting), true)
+    is SessionState.Connecting -> Triple(Yz.caution, stringResource(R.string.st_connecting), true)
+    is SessionState.Reconnecting -> Triple(Yz.danger, stringResource(R.string.st_reconnecting), true)
+    else -> Triple(Yz.mocha, stringResource(if (stopped) R.string.yz_idle_stopped else R.string.not_connected), false)
 }
 
 /** 點一下打開連線狀態視窗。 */
@@ -281,22 +266,9 @@ internal fun YzStatusChip(compact: Boolean = false, onClick: (() -> Unit)?) {
     val repo = LocalRepo.current
     val state by repo.state.collectAsState()
     val stopped by repo.userStopped.collectAsState()
-    val (color, text) = yzState(state, stopped)
-    val shape = RoundedCornerShape(16.dp)
-    val m = Modifier.clip(shape).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-        .border(1.dp, color.copy(alpha = 0.45f), shape).background(color.copy(alpha = 0.08f), shape)
-    if (compact) {
-        Column(m.padding(horizontal = 6.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            CrystalDot(color, state == SessionState.Streaming, Modifier.size(12.dp))
-            Text(text, color = color, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-        }
-    } else {
-        Row(m.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-            CrystalDot(color, state == SessionState.Streaming, Modifier.size(12.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(text, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-        }
-    }
+    val (color, text, hatch) = yzState(state, stopped)
+    YzStateChip(text, color, dot = !hatch, hatch = hatch, compact = compact,
+        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
 }
 
 /** 一句話說明現在的狀態，以及使用者該做什麼。 */
@@ -349,16 +321,12 @@ private fun YzConnSheet(onDismiss: () -> Unit, onEdit: () -> Unit) {
                 ap?.let { Mono("WiFi  $it", RxColors.muted) }
                 Spacer(Modifier.height(14.dp))
                 if (target == null) {
-                    Button(onClick = { connect() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.connect)) }
+                    YzButton(stringResource(R.string.connect), Modifier.fillMaxWidth(), primary = true) { connect() }
                 } else {
-                    OutlinedButton(onClick = { confirmStop = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.yz_conn_stop), color = RxColors.danger)
-                    }
+                    YzButton(stringResource(R.string.yz_conn_stop), Modifier.fillMaxWidth(), danger = true) { confirmStop = true }
                 }
-                Spacer(Modifier.height(6.dp))
-                OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.yz_conn_settings), color = RxColors.text)
-                }
+                Spacer(Modifier.height(8.dp))
+                YzButton(stringResource(R.string.yz_conn_settings), Modifier.fillMaxWidth(), onClick = onEdit)
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
@@ -386,8 +354,8 @@ private fun YzIdleHint(onSettings: () -> Unit) {
             Text(stringResource(if (stopped) R.string.yz_state_stopped else R.string.yz_idle_hint), color = RxColors.muted, fontSize = 13.sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(18.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(onClick = connect) { Text(stringResource(R.string.connect)) }
-                OutlinedButton(onClick = onSettings) { Text(stringResource(R.string.yz_conn_settings), color = RxColors.text) }
+                YzButton(stringResource(R.string.connect), primary = true, onClick = connect)
+                YzButton(stringResource(R.string.yz_conn_settings), onClick = onSettings)
             }
         }
     }
@@ -450,10 +418,10 @@ private fun YzConnectDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            Button(onClick = {
+            YzButton(stringResource(R.string.yz_conn_save), primary = true, enabled = host.isNotBlank()) {
                 // 已經連著、設定也沒改：不用重連（重連會把這趟錄製切斷）
                 if (repo.target.value != null && !changed()) onDismiss() else { save(); connect() }
-            }, enabled = host.isNotBlank()) { Text(stringResource(R.string.yz_conn_save)) }
+            }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )

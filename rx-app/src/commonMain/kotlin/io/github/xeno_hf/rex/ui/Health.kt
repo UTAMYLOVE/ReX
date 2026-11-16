@@ -98,8 +98,8 @@ private fun AiPanel(dir: kotlinx.io.files.Path) {
     var busy by remember(dir) { mutableStateOf(false) }
     var err by remember(dir) { mutableStateOf<String?>(null) }
     Column(
-        Modifier.fillMaxWidth().padding(bottom = 8.dp).background(RxColors.card, RoundedCornerShape(12.dp))
-            .border(1.dp, RxColors.brand.copy(alpha = .5f), RoundedCornerShape(12.dp)).padding(12.dp),
+        Modifier.fillMaxWidth().padding(bottom = 8.dp).background(RxColors.card, YzCardShape)
+            .border(1.5.dp, Yz.rose.copy(alpha = .7f), YzCardShape).padding(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.ai_title, repo.aiProvider.collectAsState().value.label), fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -122,9 +122,9 @@ fun HealthTrend(onOpen: (kotlinx.io.files.Path) -> Unit) {
     if (history.isEmpty()) return
     val recent = history.take(20).reversed()
     Column(
-        Modifier.fillMaxWidth().background(RxColors.card, RoundedCornerShape(12.dp)).border(1.dp, RxColors.line, RoundedCornerShape(12.dp)).padding(12.dp),
+        Modifier.fillMaxWidth().background(RxColors.card, YzCardShape).padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Text(stringResource(R.string.trend_title, history.size), fontWeight = FontWeight.Bold)
+        Text(stringResource(R.string.trend_title, history.size), fontWeight = FontWeight.Black, fontSize = 16.sp)
         Spacer(Modifier.height(6.dp))
         val lineColor = RxColors.accent
         val grid = RxColors.track
@@ -244,8 +244,7 @@ private fun findingText(code: String): Int? = when (code) {
 @Composable
 private fun Panel(title: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     Column(
-        modifier.fillMaxWidth().background(RxColors.card, RoundedCornerShape(12.dp))
-            .border(1.dp, RxColors.line, RoundedCornerShape(12.dp)).padding(10.dp),
+        modifier.fillMaxWidth().background(RxColors.card, YzCardShape).padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(6.dp).background(RxColors.brand, CircleShape))
@@ -266,7 +265,7 @@ private fun ScorePanel(r: EngineHealth.Report) {
                 Text(r.score.toString(), fontFamily = Digits, fontWeight = FontWeight.ExtraBold, fontSize = 60.sp, color = c, lineHeight = 60.sp)
                 Text(
                     stringResource(levelLabel(r.level)), color = c, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.background(c.copy(alpha = 0.14f), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.background(c.copy(alpha = 0.14f), androidx.compose.foundation.shape.CutCornerShape(bottomEnd = 5.dp)).padding(horizontal = 8.dp, vertical = 2.dp),
                 )
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -286,7 +285,7 @@ private fun AreaBar(a: EngineHealth.AreaScore) {
     val c = if (a.checked) levelColor(a.level) else RxColors.line
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(stringResource(areaLabel(a.area)), fontSize = 11.sp, modifier = Modifier.width(64.dp), maxLines = 1)
-        Box(Modifier.weight(1f).height(7.dp).clip(RoundedCornerShape(4.dp)).background(RxColors.track)) {
+        Box(Modifier.weight(1f).height(7.dp).clip(SlantShape).background(RxColors.track)) {
             if (a.checked) Box(Modifier.fillMaxWidth(a.score / 100f).height(7.dp).background(c))
         }
         Text(
@@ -315,8 +314,8 @@ private fun MetricsPanel(r: EngineHealth.Report) {
 private fun MetricTile(m: EngineHealth.Metric, modifier: Modifier) {
     val v = m.value
     val c = if (v == null) RxColors.muted else if (m.level == Level.OK) RxColors.text else levelColor(m.level)
-    Row(modifier.background(RxColors.cardHi.copy(alpha = 0.55f), RoundedCornerShape(8.dp)).height(50.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(3.dp).height(50.dp).background(if (v == null) RxColors.line else levelColor(m.level), RoundedCornerShape(2.dp)))
+    Row(modifier.background(RxColors.cardHi.copy(alpha = 0.55f), androidx.compose.foundation.shape.CutCornerShape(bottomEnd = 6.dp)).height(50.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(3.dp).height(50.dp).background(if (v == null) RxColors.line else levelColor(m.level), SlantShape))
         Column(Modifier.padding(horizontal = 8.dp)) {
             Text(metricLabel(m.key)?.let { stringResource(it) } ?: m.key, color = RxColors.muted, fontSize = 10.sp, maxLines = 1)
             Row(verticalAlignment = Alignment.Bottom) {

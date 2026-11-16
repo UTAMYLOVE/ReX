@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.Font
 import io.github.xeno_hf.rex.res.R
 import io.github.xeno_hf.rex.res.Res
@@ -95,7 +96,7 @@ val Nippon = RxPalette(
     brand = Color(0xFFDC9FB4), brand2 = Color(0xFFA5DEE4), brandInk = Color(0xFFA8506F), onBrand = Color(0xFF4E3838),
     partner = Color(0xFFA5DEE4),
     accent = Color(0xFF2F8F9B),
-    warn = Color(0xFFB8741F), danger = Color(0xFFC93A52),
+    warn = Color(0xFFA8506F), danger = Color(0xFFC93A52),
     traces = listOf(Color(0xFF2F8F9B), Color(0xFFA8506F), Color(0xFF9E7A7A), Color(0xFFB8741F), Color(0xFF5F6FB5), Color(0xFF4F8A5C)),
 )
 
@@ -208,7 +209,15 @@ fun RxTheme(choice: ThemeChoice, content: @Composable () -> Unit) {
         surfaceContainer = p.card, surfaceContainerHigh = p.card, secondaryContainer = p.cardHi, onSecondaryContainer = p.brandInk,
         outline = p.line,
     )
-    MaterialTheme(colorScheme = scheme, typography = Typography()) {
+    // 夜櫻：對話框、輸入框、chip 一律切角（圓角看起來太可愛）
+    val shapes = androidx.compose.material3.Shapes(
+        extraSmall = androidx.compose.foundation.shape.CutCornerShape(2.dp),
+        small = androidx.compose.foundation.shape.CutCornerShape(4.dp),
+        medium = androidx.compose.foundation.shape.CutCornerShape(topStart = 8.dp, bottomEnd = 8.dp),
+        large = androidx.compose.foundation.shape.CutCornerShape(topStart = 12.dp, bottomEnd = 12.dp),
+        extraLarge = androidx.compose.foundation.shape.CutCornerShape(topStart = 16.dp, bottomEnd = 16.dp),
+    )
+    MaterialTheme(colorScheme = scheme, typography = Typography(), shapes = shapes) {
         // Surface 提供預設內容色（否則 Text 在非 Surface 容器裡會是黑字）
         Surface(color = p.bg, contentColor = p.text, content = content)
     }
