@@ -64,10 +64,12 @@ fun MonitorScreen() {
     val live by repo.live.collectAsState()
     val state by repo.state.collectAsState()
     val style by repo.monStyle.collectAsState()
-    val tilesMap by repo.monTiles.collectAsState()
+    val chosen by repo.monTiles.collectAsState()
     val ride by repo.ride.collectAsState()
     val mapAlert by repo.mapAlert.collectAsState()
-    val locked by repo.controlsLocked.collectAsState()
+    val history by repo.healthHistory.collectAsState()
+    val open by repo.openRequest.collectAsState()
+    val overlayOn by repo.overlayOn.collectAsState()
     val rec by repo.recording.collectAsState()
     val redline by repo.redline.collectAsState()
     val wot by repo.wotMode.collectAsState()
@@ -94,15 +96,23 @@ fun MonitorScreen() {
     }
 
     var picking by remember { mutableStateOf<Int?>(null) }
-    var mapPick by remember { mutableStateOf(false) }
-    val chosen = tilesMap[style] ?: MonField.DEFAULT_TILES
+    var mapOpen by remember { mutableStateOf(false) }
+    var faultOpen by remember { mutableStateOf(false) }
     val shown = MonField.withOverride(chosen, live, ride)
+    // 點油圖通知：直接打開油圖視窗
+    LaunchedEffect(open) { if (open == Repo.OPEN_MAP) { repo.openRequest.value = null; mapOpen = true } }
+    // 上一趟的健檢（太短的不算）
+    val lastHealth = history.firstOrNull()?.takeIf { rec == null && it.report.runningSec >= rx.session.EngineHealth.MIN_RUNNING_SEC }
+    // 懸浮小儀表開著但還沒給權限：監控頁提醒一行（從系統設定回來會自己消失）
+    var overlayPermitted by remember { mutableStateOf(repo.platform.overlayPermitted()) }
+    val nudge = repo.platform.supportsOverlay && overlayOn && !overlayPermitted
+    if (nudge) LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1000); overlayPermitted = repo.platform.overlayPermitted() } }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(pal.page)) {
         val land = maxWidth > maxHeight
         val mw = maxWidth.value
         val dialH = when (style) { MonStyle.A -> A_H; MonStyle.B -> B_H; MonStyle.C -> C_H }
-        val lowerDu = 2 * 104f + 8 + 10 + 44 + 8 + 30 + 8 + 24 + (if (mapAlert != null) 48f else 0f)
+        val lowerDu = 2 * 104f + 8 + 10 + 44 + 8 + 30 + 8 + 24 + (if (mapAlert != null) 48f else 0f) + (if (nudge) 48f else 0f)
         // k：每個設計單位幾 dp
         val k = if (land) min((maxWidth.value * 0.48f) / 412f, maxHeight.value / dialH)
         else min(maxWidth.value / 412f, maxHeight.value / (dialH + lowerDu + 20))
@@ -119,26 +129,18 @@ fun MonitorScreen() {
                         }
                     }
                 }
-                // 鎖定 chip
-                val lockY = if (style == MonStyle.B) 44f else 6f
-                LockChip(locked, night, Modifier.offset((352 * k).dp, (lockY * k).dp).size((44 * k).dp, (28 * k).dp)) {
-                    repo.setControlsLocked(!locked)
-                    Toasts.show(Strings.get(if (!locked) R.string.lock_on else R.string.lock_off))
-                }
-                // 點油圖：解鎖時才能切換
+                // 點油圖：打開油圖視窗（目前油圖、這次的切換紀錄、解鎖切換）
                 val (mx, my, mw, mh) = when (style) {
                     MonStyle.A -> listOf(168f, 346f, 76f, 36f)
                     MonStyle.B -> listOf(162f, 390f, 88f, 40f)
                     MonStyle.C -> listOf(340f, 316f, 56f, 72f)
                 }
-                Box(Modifier.offset((mx * k).dp, (my * k).dp).size((mw * k).dp, (mh * k).dp).clickable {
-                    if (locked) Toasts.show(Strings.get(R.string.map_locked_hint)) else mapPick = true
-                })
+                Box(Modifier.offset((mx * k).dp, (my * k).dp).size((mw * k).dp, (mh * k).dp).clickable { mapOpen = true })
             }
         }
         val lower: @Composable (Float) -> Unit = { kk ->
             Column(Modifier.width((412 * kk).dp)) {
-                mapAlert?.let { MapAlertBar(it, pal, kk) { repo.ackMapAlert() } }
+                mapAlert?.let { MapAlertBar(it, pal, kk, onOpen = { mapOpen = true }) { repo.ackMapAlert() } }
                 val tileW = (412f - 32 - 8) / 2
                 for (row in 0 until 2) {
                     Row(Modifier.padding(start = (16 * kk).dp, top = ((if (row == 0) 10f else 8f) * kk).dp)) {
@@ -155,13 +157,22 @@ fun MonitorScreen() {
                     val sx = size.width / 412f
                     withTransform({ scale(sx, sx, Offset.Zero) }) { tpsRow(tm, live, pal) }
                 }
-                Canvas(Modifier.padding(top = (8 * kk).dp).size((412 * kk).dp, (30 * kk).dp)) {
+                Canvas(Modifier.padding(top = (8 * kk).dp).size((412 * kk).dp, (30 * kk).dp).clickable { faultOpen = true }) {
                     val sx = size.width / 412f
                     withTransform({ scale(sx, sx, Offset.Zero) }) { sysRow(tm, live, ride, pal) }
                 }
-                Canvas(Modifier.padding(top = (8 * kk).dp).size((412 * kk).dp, (24 * kk).dp)) {
+                Canvas(Modifier.padding(top = (8 * kk).dp).size((412 * kk).dp, (24 * kk).dp)
+                    .then(if (lastHealth != null) Modifier.clickable { repo.openRequest.value = Repo.OPEN_HEALTH } else Modifier)) {
                     val sx = size.width / 412f
-                    withTransform({ scale(sx, sx, Offset.Zero) }) { rideRow(tm, rec != null, ride, pal) }
+                    withTransform({ scale(sx, sx, Offset.Zero) }) { rideRow(tm, rec != null, ride, pal, lastHealth?.report?.score) }
+                }
+                if (nudge) Row(
+                    Modifier.padding(start = (16 * kk).dp, top = (8 * kk).dp).size((380 * kk).dp, (40 * kk).dp)
+                        .background(pal.tile, androidx.compose.foundation.shape.RoundedCornerShape((8 * kk).dp)).padding(start = (12 * kk).dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(stringResource(R.string.ov_nudge), color = pal.caution, fontSize = (13 * kk).sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { repo.platform.requestOverlayPermission() }) { Text(stringResource(R.string.ov_allow), color = RxColors.brandInk, fontSize = (13 * kk).sp) }
                 }
             }
         }
@@ -180,49 +191,105 @@ fun MonitorScreen() {
     }
 
     picking?.let { i ->
-        FieldPicker(stringResource(R.string.pick_field_title), chosen.getOrNull(i), onPick = { repo.setMonTile(style, i, it); picking = null }, onDismiss = { picking = null })
+        FieldPicker(stringResource(R.string.pick_field_title), chosen.getOrNull(i), onPick = { repo.setMonTile(i, it); picking = null }, onDismiss = { picking = null })
     }
-    if (mapPick) {
-        val now by repo.mapNow.collectAsState()
-        AlertDialog(
-            onDismissRequest = { mapPick = false },
-            containerColor = RxColors.card,
-            title = { Text(stringResource(R.string.map_pick_title)) },
-            text = {
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    (1..3).forEach { m ->
-                        Box(
-                            Modifier.size(64.dp, 52.dp).background(if (now == m) mapFill(m) else RxColors.track, androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                                .clickable { repo.setMap(m); mapPick = false },
-                            contentAlignment = Alignment.Center,
-                        ) { Text("$m", style = digits(26.sp, FontWeight.ExtraBold), color = if (now == m) Inst.bg else RxColors.text) }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { mapPick = false }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
+    if (mapOpen) MapWindow { mapOpen = false }
+    if (faultOpen) FaultWindow { faultOpen = false }
 }
 
-/** 鎖頭 chip：10° 平行四邊形。鎖上＝實心玫瑰底。 */
+/**
+ * 油圖視窗：目前油圖、這次連線的切換紀錄（不是這支手機切的用紅字），以及「解鎖切換」。
+ * 解鎖只在這個視窗開著時有效、不存檔；切完一次或關掉視窗就鎖回去。
+ */
 @Composable
-private fun LockChip(locked: Boolean, night: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Canvas(modifier.clickable(onClick = onClick)) {
-        val w = size.width; val h = size.height
-        val s = w / 44f
-        withTransform({ scale(s, s, Offset.Zero) }) {
-            val p = paraPath(0f, 0f, 44f, 28f)
-            if (locked) drawPath(p, Inst.rose) else { drawPath(p, if (night) Inst.surf2 else Color.White); drawPath(p, Inst.mocha.copy(alpha = .4f), style = Stroke(1f)) }
-            val c = if (locked) Inst.bg else if (night) Inst.beige else Inst.labelDay
-            drawRoundRect(c, Offset(16.5f, 12.5f), Size(11f, 8.5f), androidx.compose.ui.geometry.CornerRadius(1.5f), style = Stroke(1.5f))
-            val shackle = androidx.compose.ui.graphics.Path().apply {
-                moveTo(18.75f, 12.5f); lineTo(18.75f, 10f)
-                arcTo(androidx.compose.ui.geometry.Rect(18.75f, 6.75f, 25.25f, 13.25f), 180f, 180f, false)
-                lineTo(25.25f, if (locked) 12.5f else 10.5f)
-            }
-            drawPath(shackle, c, style = Stroke(1.5f))
-        }
+private fun MapWindow(onDismiss: () -> Unit) {
+    val repo = LocalRepo.current
+    val now by repo.mapNow.collectAsState()
+    val events by repo.mapEvents.collectAsState()
+    var unlocked by remember { mutableStateOf(false) }
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        repo.ackMapAlert() // 打開視窗就算看過了
+        onDispose { repo.relock() }
     }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = RxColors.card,
+        title = { Text(stringResource(R.string.map_win_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.map_win_now), color = RxColors.muted, modifier = Modifier.padding(end = 10.dp))
+                    Box(
+                        Modifier.size(84.dp, 56.dp).background(now?.let { mapFill(it) } ?: RxColors.track, androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) { Text(now?.let { "MAP $it" } ?: "—", style = digits(22.sp, FontWeight.ExtraBold), color = if (now != null) Inst.bg else RxColors.muted) }
+                    if (now == null) Text(stringResource(R.string.map_win_unknown), color = RxColors.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 10.dp))
+                }
+                Spacer(Modifier.height(14.dp))
+                if (!unlocked) {
+                    androidx.compose.material3.OutlinedButton(onClick = { unlocked = true; repo.unlockOnce() }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.map_win_unlock), color = RxColors.text)
+                    }
+                } else {
+                    Text(stringResource(R.string.map_win_pick), fontSize = 13.sp)
+                    Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        (1..3).forEach { m ->
+                            Box(
+                                Modifier.size(64.dp, 52.dp).background(if (now == m) mapFill(m) else RxColors.track, androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                    .clickable { repo.setMap(m); unlocked = false; repo.relock() },
+                                contentAlignment = Alignment.Center,
+                            ) { Text("$m", style = digits(26.sp, FontWeight.ExtraBold), color = if (now == m) Inst.bg else RxColors.text) }
+                        }
+                    }
+                }
+                Text(stringResource(R.string.map_win_note), color = RxColors.muted, fontSize = 11.sp, lineHeight = 15.sp, modifier = Modifier.padding(top = 8.dp))
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.map_win_log), fontWeight = FontWeight.Bold)
+                if (events.isEmpty()) Text(stringResource(R.string.map_log_empty), color = RxColors.muted, fontSize = 13.sp)
+                events.reversed().forEach { e ->
+                    Text(
+                        stringResource(R.string.map_log_row, WallClock.format(e.wallMs, "HH:mm:ss"), e.from, e.to,
+                            stringResource(if (e.local) R.string.map_log_local else R.string.map_log_remote), e.rpm?.toInt() ?: 0, e.speed?.toInt() ?: 0),
+                        color = if (e.local) RxColors.muted else RxColors.danger, fontSize = 13.sp, modifier = Modifier.padding(vertical = 3.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
+    )
+}
+
+/** 故障碼視窗：現在亮著的、這次連線出現過的。沒連線時不說「沒有故障」，避免讓人誤以為沒事。 */
+@Composable
+private fun FaultWindow(onDismiss: () -> Unit) {
+    val repo = LocalRepo.current
+    val live by repo.live.collectAsState()
+    val seen by repo.malfSeen.collectAsState()
+    val l = live
+    val active = l?.layout?.activeMalfunctions(l.raw).orEmpty()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = RxColors.card,
+        title = { Text(stringResource(R.string.fault_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.malf_now), fontWeight = FontWeight.Bold)
+                when {
+                    l == null -> Text(stringResource(R.string.fault_no_data), color = RxColors.muted)
+                    active.isEmpty() -> Text(stringResource(R.string.malf_none), color = RxColors.accent)
+                    else -> active.forEach { d -> Text("● ${d.name}", color = RxColors.danger, modifier = Modifier.padding(vertical = 2.dp)) }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(stringResource(R.string.malf_seen, seen.size), fontWeight = FontWeight.Bold)
+                if (seen.isEmpty()) Text("—", color = RxColors.muted)
+                seen.entries.sortedBy { it.value }.forEach { (n, t) ->
+                    Text(stringResource(R.string.malf_first, n, WallClock.format(t, "HH:mm:ss")), color = RxColors.warn, fontSize = 13.sp, modifier = Modifier.padding(vertical = 2.dp))
+                }
+                Text(stringResource(R.string.malf_hint), color = RxColors.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
+    )
 }
 
 /** 一格數值：標籤、數值（−10° 斜）、單位；長按換欄位。警示時變色，不閃。 */
@@ -276,7 +343,7 @@ private fun DrawScope.sysRow(tm: TextMeasurer, l: Live?, ride: RideStats, pal: P
     fun lv(vararg f: MonField) = f.maxOfOrNull { it.level(it.value(l, ride), l).ordinal }?.let { Lv.entries[it] } ?: Lv.OK
     val crank = if ((l?.v(72) ?: 0.0) > 0) Lv.CAUTION else Lv.OK
     val items = listOf(R.string.health_a_cooling to lv(MonField.TEMP), R.string.health_a_fuel to lv(MonField.AFR, MonField.TRIM),
-        R.string.health_a_electrical to lv(MonField.VOLT), R.string.health_a_idle to Lv.OK, R.string.health_a_ignition to crank,
+        R.string.health_a_electrical to lv(MonField.VOLT), R.string.health_a_ignition to crank,
         R.string.health_a_faults to lv(MonField.FAULTS))
     val x0 = 16f; val W = 380f; val H = 28f; val n = items.size
     drawPath(chamPath(x0 + .5f, 1.5f, W - 1, H - 1, 5.8f), Inst.mocha.copy(alpha = .28f), style = Stroke(1f))
@@ -290,10 +357,11 @@ private fun DrawScope.sysRow(tm: TextMeasurer, l: Live?, ride: RideStats, pal: P
     }
 }
 
-private fun DrawScope.rideRow(tm: TextMeasurer, recording: Boolean, ride: RideStats, pal: PagePal) {
+private fun DrawScope.rideRow(tm: TextMeasurer, recording: Boolean, ride: RideStats, pal: PagePal, lastScore: Int?) {
     drawCircle(if (recording) pal.rec else Inst.mocha.copy(alpha = .5f), 3.5f, Offset(20f, 13f))
     var x = 30f
     fun seg(t: String, num: Boolean) { x += txt(tm, t, x, 18f, 13f, if (num) pal.num else pal.label, if (num) FontWeight.SemiBold else FontWeight.Medium, digits = num) + 5 }
+    if (!recording && lastScore != null) { txt(tm, Strings.get(R.string.ride_last_health, lastScore), x, 18f, 13f, pal.num, FontWeight.SemiBold); return }
     if (!recording) { seg(Strings.get(R.string.ride_not_recording), false); return }
     val mins = ((WallClock.nowMs() - ride.startMs) / 60_000).coerceAtLeast(0)
     seg(Strings.get(R.string.ride_recording), false)
@@ -304,9 +372,9 @@ private fun DrawScope.rideRow(tm: TextMeasurer, recording: Boolean, ride: RideSt
 
 /** 「油圖被切換、不是從這支手機切的」提醒條（注意等級：玫瑰外框，不用紅色）。 */
 @Composable
-private fun MapAlertBar(ev: Repo.MapEvent, pal: PagePal, k: Float, onAck: () -> Unit) {
+private fun MapAlertBar(ev: Repo.MapEvent, pal: PagePal, k: Float, onOpen: () -> Unit, onAck: () -> Unit) {
     val tm = rememberTextMeasurer()
-    Box(Modifier.padding(start = (16 * k).dp, top = (8 * k).dp).size((380 * k).dp, (40 * k).dp)) {
+    Box(Modifier.padding(start = (16 * k).dp, top = (8 * k).dp).size((380 * k).dp, (40 * k).dp).clickable(onClick = onOpen)) {
         Canvas(Modifier.fillMaxSize()) {
             val s = size.width / 380f
             withTransform({ scale(s, s, Offset.Zero) }) {

@@ -53,7 +53,7 @@ class RxService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            repo().disconnect()
+            repo().stopByUser() // 使用者按「結束」：之後回到 App 也不自動連
             stopSelf()
             return START_NOT_STICKY
         }
@@ -98,7 +98,7 @@ class RxService : Service() {
         val stop = PendingIntent.getService(this, 1, Intent(this, RxService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_rex)
-            .setContentTitle("ReX")
+            .setContentTitle(getString(R.string.app_name))
             .setContentText(text)
             .setOngoing(true)
             .setOnlyAlertOnce(true)

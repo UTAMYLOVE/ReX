@@ -97,6 +97,8 @@ const val DEFAULT_ECU_PASSWORD = 888888
 class Repo(val platform: Platform) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val prefs = platform.kv
+    // 夜櫻：舊設定一次性調成固定值（要在下面各設定讀 prefs 之前跑）
+    init { Yozakura.migrate(prefs) }
     val secrets get() = platform.secrets
 
     val registry = MutableStateFlow<ChannelRegistry?>(null)
@@ -239,11 +241,11 @@ class Repo(val platform: Platform) {
     // ---------------- 監控畫面／懸浮小儀表 ----------------
     val monStyle = MutableStateFlow(MonStyle.parse(prefs.getString("monStyle", null)))
     fun setMonStyle(v: MonStyle) { monStyle.value = v; prefs.putString("monStyle", v.name) }
-    /** 每種風格各自記住的四格欄位。 */
-    val monTiles = MutableStateFlow(MonStyle.entries.associateWith { MonField.parse(prefs.getString("monFields.${it.name}", null), MonField.DEFAULT_TILES) })
-    fun setMonTile(style: MonStyle, index: Int, f: MonField) {
-        val l = monTiles.value[style]!!.toMutableList().also { it[index] = f }
-        monTiles.value = monTiles.value + (style to l); prefs.putString("monFields.${style.name}", l.joinToString(",") { it.id })
+    /** 監控四格（三種錶盤風格共用一組）。 */
+    val monTiles = MutableStateFlow(MonField.parse(prefs.getString(Yozakura.TILES_KEY, null), MonField.DEFAULT_TILES))
+    fun setMonTile(index: Int, f: MonField) {
+        val l = monTiles.value.toMutableList().also { it[index] = f }
+        monTiles.value = l; prefs.putString(Yozakura.TILES_KEY, l.joinToString(",") { it.id })
     }
     /** 懸浮小儀表側翼的三列。 */
     val overlayRows = MutableStateFlow(MonField.parse(prefs.getString("ovRows", null), MonField.DEFAULT_ROWS))
@@ -266,13 +268,25 @@ class Repo(val platform: Platform) {
     var autoConnect: Boolean
         get() = prefs.getBoolean("autoConnect", true)
         set(v) = prefs.putBoolean("autoConnect", v)
-    private var autoConnectDone = false
-    /** App 啟動後呼叫一次：有設定 ECU 位址、還沒連線就自動連。 */
-    fun autoConnectOnce() {
-        if (autoConnectDone) return
-        autoConnectDone = true
-        if (autoConnect && target.value == null && registry.value != null && host.isNotBlank()) connect(Target.Ecu(host.trim()))
+    /** 使用者自己按了「中斷連線」或通知上的「結束」：之後回到 App 不再自動連，等使用者手動按連線。 */
+    val userStopped = MutableStateFlow(false)
+    fun stopByUser() { userStopped.value = true; disconnect() }
+    private var autoConnectAtMs = -1L
+    /** 回到 App（或 App 剛開好）時呼叫：沒連線、使用者也沒自己停掉，就自動連上次的 ECU。 */
+    fun autoConnectIfIdle() {
+        if (!autoConnect || userStopped.value || target.value != null || registry.value == null || host.isBlank()) return
+        val now = platform.elapsedNanos() / 1_000_000
+        if (autoConnectAtMs >= 0 && now - autoConnectAtMs < 10_000) return // 剛送出的連線還在建立
+        autoConnectAtMs = now
+        connect(Target.Ecu(host.trim()))
     }
+
+    /** 從通知或 App 內其他地方要求打開某個畫面（[OPEN_MAP]、[OPEN_HEALTH]）；畫面處理完清回 null。 */
+    val openRequest = MutableStateFlow<String?>(null)
+
+    /** 油圖視窗裡的「解鎖切換」：只在這次暫時解鎖，不存檔；關掉視窗或切完就用 [relock] 回到存檔的狀態。 */
+    fun unlockOnce() { controlsLocked.value = false }
+    fun relock() { controlsLocked.value = prefs.getBoolean("locked", true) }
 
     // ---------------- AI ----------------
     val aiProvider = MutableStateFlow(AiProvider.parse(prefs.getString("aiProvider", null)))
@@ -574,11 +588,20 @@ class Repo(val platform: Platform) {
      */
     private suspend fun rideLoop(s: Session, t: Target) {
         var quietSince = -1L
+        val startedMs = platform.elapsedNanos() / 1_000_000
+        var everStreamed = false
         while (true) {
             kotlinx.coroutines.delay(1_000)
             if (session !== s) return
             if (t !is Target.Ecu) continue
             val now = platform.elapsedNanos() / 1_000_000
+            // 連上之後一直沒收到資料（例如在家打開 App、車子不在旁邊）：10 分鐘後自己停，不在背景一直重試耗電
+            if (state.value == SessionState.Streaming) everStreamed = true
+            if (!everStreamed && now - startedMs > NEVER_STREAMED_STOP_MS) {
+                log("No data from the ECU for ${NEVER_STREAMED_STOP_MS / 60_000} min since connecting, stopping")
+                disconnect()
+                return
+            }
             val l = live.value
             val fresh = l != null && state.value == SessionState.Streaming && now - l.tNanos / 1_000_000 < 3_000
             val running = fresh && (l!!.v(Ch.RPM) ?: 0.0) > 300
@@ -650,6 +673,7 @@ class Repo(val platform: Platform) {
 
     fun connect(t: Target) {
         val reg = registry.value ?: return
+        userStopped.value = false
         scope.launch {
             disconnectInternal()
             val preset = currentPreset()
@@ -833,7 +857,11 @@ class Repo(val platform: Platform) {
         )
         const val AUTO_RECORD_DEFAULT = true
         /** 熄火（或收不到資料）多久算一趟騎完。 */
-        const val RIDE_END_MS = 90_000L
+        const val RIDE_END_MS = 5 * 60_000L
+        /** 連上後一直沒有資料，多久自己停。 */
+        const val NEVER_STREAMED_STOP_MS = 10 * 60_000L
+        const val OPEN_MAP = "map"
+        const val OPEN_HEALTH = "health"
         const val AI_FILE = "ai.txt"
         const val ALERT_MAP = 101
         const val ALERT_HEALTH = 102

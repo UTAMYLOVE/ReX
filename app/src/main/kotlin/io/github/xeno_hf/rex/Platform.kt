@@ -283,7 +283,11 @@ class AndroidPlatform(private val app: Context) : Platform {
     // ---------------- 提醒、AI、懸浮小儀表 ----------------
     override fun alert(id: Int, title: String, text: String, vibrate: Boolean) {
         val nm = app.getSystemService(android.app.NotificationManager::class.java)
-        val pi = android.app.PendingIntent.getActivity(app, id, android.content.Intent(app, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP), android.app.PendingIntent.FLAG_IMMUTABLE)
+        // 點通知直接打開對應的畫面；UPDATE_CURRENT：同一個 id 的通知換上新的內容
+        val open = when (id) { Repo.ALERT_MAP -> Repo.OPEN_MAP; Repo.ALERT_HEALTH -> Repo.OPEN_HEALTH; else -> null }
+        val intent = android.content.Intent(app, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            .apply { open?.let { putExtra(MainActivity.EXTRA_OPEN, it) } }
+        val pi = android.app.PendingIntent.getActivity(app, id, intent, android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
         val n = androidx.core.app.NotificationCompat.Builder(app, RxApp.ALERT_CHANNEL)
             .setSmallIcon(R.drawable.ic_stat_rex).setContentTitle(title).setContentText(text)
             .setStyle(androidx.core.app.NotificationCompat.BigTextStyle().bigText(text))

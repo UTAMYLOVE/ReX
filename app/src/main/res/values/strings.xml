@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name" translatable="false">ReX</string>
+    <string name="app_name">Yozakura</string>
     <string name="share_import_label">Import to ReX demo mode</string>
 
     <!-- 通用 -->
@@ -245,7 +245,7 @@
     <string name="health_a_fuel">Fuelling</string>
     <string name="health_a_electrical">Charging</string>
     <string name="health_a_idle">Idle</string>
-    <string name="health_a_ignition">Crank signal</string>
+    <string name="health_a_ignition">Rpm signal</string>
     <string name="health_a_faults">Fault codes</string>
     <string name="health_m_t_eng_max">Max engine temp</string>
     <string name="health_m_volt_charge">Charging voltage</string>
@@ -319,8 +319,8 @@
     <string name="pick_field_title">Choose what this tile shows</string>
     <string name="pick_row_title">Floating gauge row %1$d</string>
     <string name="ride_max">max</string>
-    <string name="ride_not_recording">Not recording · starts when the engine runs</string>
-    <string name="ride_recording">Recording</string>
+    <string name="ride_not_recording">Not recording · starts when the engine starts</string>
+    <string name="ride_recording">REC</string>
     <string name="set_ai">AI explanation</string>
     <string name="set_ai_auto">Explain every ride automatically</string>
     <string name="set_ai_hint">Claude uses Anthropic\'s API, DeepSeek uses DeepSeek\'s API. Get a key from the provider; each explanation is billed to it. Leave auto off if you only want to ask when needed.</string>
@@ -333,13 +333,13 @@
     <string name="set_monitor">Monitor screen</string>
     <string name="set_overlay">Floating gauge</string>
     <string name="set_overlay_grant">Allow display over other apps</string>
-    <string name="set_overlay_hint">Shows over navigation when you leave ReX while connected. Drag to move; tap to make it see-through for 4 s; double-tap to open ReX. A warning temporarily replaces the last row.</string>
+    <string name="set_overlay_hint">Shown while connected when you leave Yozakura (e.g. for navigation). Drag to move, drag onto the ✕ at the bottom to close; tap to make it see-through for 4 s; double-tap to open Yozakura. A warning temporarily takes over the last row.</string>
     <string name="set_overlay_on">Show floating gauge</string>
     <string name="set_overlay_perm">ReX needs permission to display over other apps.</string>
     <string name="set_overlay_rows">Rows</string>
     <string name="set_redline">Redline (rpm)</string>
     <string name="set_style">Style</string>
-    <string name="set_tiles_hint">Long-press a value on the monitor screen to change it. Each style remembers its own. A warning temporarily replaces the last tile.</string>
+    <string name="set_tiles_hint">Long-press a value on the monitor screen to change it; all three styles share the same four. A warning temporarily takes over the last one.</string>
     <string name="set_vehicle_note">Your bike (for the AI): model, air/water cooled, mods</string>
     <string name="set_wot">Full throttle</string>
     <string name="set_wot_burst">Flash 3 times, then steady</string>
@@ -353,4 +353,45 @@
     <string name="theme_yozakura">Yozakura (dark)</string>
     <string name="trend_title">Engine check trend (%1$d rides)</string>
     <string name="wot">Full throttle</string>
+    <!-- 夜櫻 -->
+    <string name="tab_health">Health</string>
+    <string name="tab_settings">Settings</string>
+    <string name="yz_conn_title">Connection</string>
+    <string name="yz_state_streaming">Connected to the bike. Data is coming in.</string>
+    <string name="yz_state_connecting">Connecting… The phone must be on the bike\'s Wi-Fi and the bike must be powered on.</string>
+    <string name="yz_state_waiting">Connected, waiting for the ECU to send data (the bike must be powered on).</string>
+    <string name="yz_state_reconnecting">Reconnecting: the phone must be on the bike\'s Wi-Fi and the bike powered on. It keeps retrying by itself.</string>
+    <string name="yz_state_idle">Not connected.</string>
+    <string name="yz_state_stopped">You disconnected, so it will not connect by itself. Tap Connect to connect again.</string>
+    <string name="yz_conn_settings">Connection settings</string>
+    <string name="yz_conn_stop">Disconnect</string>
+    <string name="yz_conn_stop_title">Disconnect?</string>
+    <string name="yz_conn_stop_text">This ride\'s recording ends and is checked right away. It will not connect by itself until you tap Connect.</string>
+    <string name="yz_conn_edit_text">Changing the connection reconnects, which ends this ride\'s recording. Continue?</string>
+    <string name="yz_conn_save">Save and connect</string>
+    <string name="yz_confirm">OK</string>
+    <string name="yz_idle_title">Not connected to the bike</string>
+    <string name="yz_idle_hint">Power on the bike and join its Wi-Fi; Yozakura connects by itself.</string>
+    <string name="yz_idle_stopped">Disconnected</string>
+    <string name="map_win_title">Fuel map</string>
+    <string name="map_win_now">Current</string>
+    <string name="map_win_unlock">Unlock to switch</string>
+    <string name="map_win_pick">Pick the map. It locks again after switching.</string>
+    <string name="map_win_note">The lock only stops buttons on this phone; it cannot stop the bike switching maps itself. If that happens you get an alert and a notification.</string>
+    <string name="map_win_log">Switches this connection</string>
+    <string name="map_win_unknown">Waiting for data</string>
+    <string name="fault_title">Fault codes</string>
+    <string name="fault_no_data">Not connected, no data yet.</string>
+    <string name="ride_last_health">Last ride check %1$d pts ›</string>
+    <string name="ov_nudge">Floating gauge needs permission</string>
+    <string name="ov_allow">Allow</string>
+    <string name="ov_closed">Floating gauge closed. It comes back next time you connect.</string>
+    <string name="ov_first_hint">Floating gauge: drag it onto the ✕ at the bottom to close, double-tap to open Yozakura.</string>
+    <string name="yz_about">Yozakura is based on the open-source app ReX by xeno-hf and is released under GPL-3.0. It normally only reads data; it writes to the ECU only when you unlock and switch the map in the fuel-map window.</string>
+    <string name="yz_source">Source code: github.com/UTAMYLOVE/rex</string>
+    <string name="yz_conn_log">Connection log</string>
+    <string name="yz_conn_log_hint">If it will not connect, send a screenshot of this page to the developer.</string>
+    <string name="yz_back">Back</string>
+    <string name="yz_rides">Rides (%d)</string>
+    <string name="yz_recording_now">Recording this ride</string>
 </resources>

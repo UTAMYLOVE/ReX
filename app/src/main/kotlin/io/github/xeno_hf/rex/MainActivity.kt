@@ -12,25 +12,38 @@ import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import io.github.xeno_hf.rex.ui.ReXApp
+import io.github.xeno_hf.rex.ui.YozakuraApp
 import io.github.xeno_hf.rex.ui.Strings
 
 class MainActivity : ComponentActivity() {
-    private val askNotify = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    // 第一次開就一起問：通知（油圖被切換、健檢結果）＋定位（GPS 時速）。拒絕也能用，時速改用車上電腦的數值。
+    private val askPerms = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { r ->
+        val loc = r[Manifest.permission.ACCESS_FINE_LOCATION] == true || r[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        repo().let { if (loc && it.gpsEnabled.value) it.setGpsEnabled(true) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (Build.VERSION.SDK_INT >= 33) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
-        if (savedInstanceState == null) handleShare(intent)
+        if (savedInstanceState == null) {
+            val perms = buildList {
+                if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+                if (repo().gpsEnabled.value && !repo().gps.hasPermission()) { add(Manifest.permission.ACCESS_FINE_LOCATION); add(Manifest.permission.ACCESS_COARSE_LOCATION) }
+            }
+            if (perms.isNotEmpty()) askPerms.launch(perms.toTypedArray())
+            handleShare(intent)
+            handleOpen(intent)
+        }
         // 語言跟隨系統（含 Android 13+ 的「App 語言」）；換語言時 Activity 會重建
         val locales = resources.configuration.locales
         Strings.setLanguage((0 until locales.size()).map { locales[it].toLanguageTag() })
-        setContent { ReXApp(repo()) }
+        setContent { YozakuraApp(repo()) }
     }
 
     override fun onStart() {
         super.onStart()
         (application as RxApp).platform.overlay?.appVisible = true
+        // 回到 App：沒連線、使用者也沒自己停掉，就自動連
+        repo().autoConnectIfIdle()
     }
 
     override fun onStop() {
@@ -47,8 +60,17 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
+        setIntent(intent)
         handleShare(intent)
+        handleOpen(intent)
     }
+
+    /** 點通知進來：打開對應的畫面（油圖視窗、最新一趟健檢）。 */
+    private fun handleOpen(intent: android.content.Intent?) {
+        intent?.getStringExtra(EXTRA_OPEN)?.let { repo().openRequest.value = it }
+    }
+
+    companion object { const val EXTRA_OPEN = "yozakura.open" }
 
     /** 從 XTune（或任何 App）分享進來的騎乘紀錄 → 加入體驗模式。 */
     private fun handleShare(intent: android.content.Intent?) {

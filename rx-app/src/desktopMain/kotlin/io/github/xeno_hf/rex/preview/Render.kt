@@ -23,6 +23,9 @@ import io.github.xeno_hf.rex.ui.RxTheme
 import io.github.xeno_hf.rex.ui.Strings
 import io.github.xeno_hf.rex.ui.ThemeChoice
 import io.github.xeno_hf.rex.ui.WingOverlayContent
+import io.github.xeno_hf.rex.ui.YozakuraApp
+import rx.session.EngineHealth
+import rx.session.HealthStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.io.files.Path
 import org.jetbrains.skia.EncodedImageFormat
@@ -53,9 +56,26 @@ fun main(args: Array<String>) {
     val hot = live(26 to 9900.0, 51 to 104.0, 34 to 100.0, 33 to 118.0, 29 to 14.0, 55 to 12.9, 20 to 12.8, 22 to 0.4, 144 to 2.0, 25 to 31.0)
 
     repo.setSpeedFromGps(false)
+    repo.autoConnect = false // 預覽不真的連線
     repo.state.value = SessionState.Streaming
+    repo.target.value = io.github.xeno_hf.rex.Target.Ecu("192.168.88.88")
 
-    fun shot(name: String, w: Int, h: Int, theme: ThemeChoice, l: Live, times: List<Long>, content: @androidx.compose.runtime.Composable () -> Unit) {
+    // 假的兩趟騎乘紀錄（健檢分頁用）
+    fun fakeRide(name: String, score: Int, level: EngineHealth.Level, findings: List<EngineHealth.Finding>, ai: String?) {
+        val d = File(File(out, "data/sessions"), name).apply { mkdirs() }
+        File(d, "meta.json").writeText("{\n  \"rounds\": 9800,\n  \"frames\": 41000\n}\n")
+        File(d, "decoded.loga").writeText("aRacer preview")
+        val r = EngineHealth.Report(score, level, 2460.0, 2310.0, 9800,
+            listOf(EngineHealth.AreaScore(EngineHealth.Area.COOLING, if (level == EngineHealth.Level.OK) 100 else 70, level, true)),
+            findings, listOf(EngineHealth.Metric("t_eng_max", 96.0, "°C", 0)), emptyMap())
+        File(d, HealthStore.FILE).writeText(HealthStore.encode(r))
+        if (ai != null) File(d, Repo.AI_FILE).writeText(ai)
+    }
+    fakeRide("ECU_20261116_083000", 86, EngineHealth.Level.WARN, listOf(EngineHealth.Finding(EngineHealth.Area.COOLING, EngineHealth.Level.WARN, "temp_warn", listOf("117", "42"))),
+        "整體狀況正常。水溫在長上坡時短暫到 117 °C，建議檢查冷卻液量與水箱散熱片是否被堵住；空燃比與電壓都在正常範圍。")
+    fakeRide("ECU_20261115_191200", 95, EngineHealth.Level.OK, emptyList(), null)
+
+    fun shot(name: String, w: Int, h: Int, theme: ThemeChoice, l: Live, times: List<Long>, wait: Long = 400, content: @androidx.compose.runtime.Composable () -> Unit) {
         repo.live.value = l
         val density = 2f
         val scene = ImageComposeScene((w * density).toInt(), (h * density).toInt(), Density(density)) {
@@ -64,7 +84,7 @@ fun main(args: Array<String>) {
             }
         }
         var img = scene.render(0)
-        Thread.sleep(400)
+        Thread.sleep(wait)
         for (t in times) img = scene.render(t * 1_000_000)
         File(out, "$name.png").writeBytes(img.encodeToData(EncodedImageFormat.PNG)!!.bytes)
         scene.close()
@@ -84,6 +104,23 @@ fun main(args: Array<String>) {
     repo.mapAlert.value = null
     shot("overlay_normal", 232, 148, ThemeChoice.YOZAKURA, cruise, steady) { Box(Modifier.fillMaxSize().background(Color(0xFFECE8E1)).padding(10.dp)) { WingOverlayContent(repo) } }
     shot("overlay_hot_rev", 232, 148, ThemeChoice.YOZAKURA, hot, revOn) { Box(Modifier.fillMaxSize().background(Color(0xFFECE8E1)).padding(10.dp)) { WingOverlayContent(repo) } }
+
+    // 整個夜櫻 App（頂列＋分頁）
+    repo.loadHealthHistory()
+    Thread.sleep(500)
+    repo.mapNow.value = 2
+    repo.setTheme(ThemeChoice.YOZAKURA)
+    for (tab in listOf("Monitor", "Health", "Settings")) {
+        shot("app_${tab.lowercase()}", 412, 892, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = tab) }
+    }
+    repo.setTheme(ThemeChoice.NIPPON)
+    shot("app_monitor_day", 412, 892, ThemeChoice.NIPPON, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
+    repo.setTheme(ThemeChoice.YOZAKURA)
+    repo.openRequest.value = Repo.OPEN_MAP
+    shot("app_map_window", 412, 892, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
+    repo.openRequest.value = null
+    repo.target.value = null; repo.state.value = SessionState.Idle
+    shot("app_idle", 412, 892, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
 }
 
 private class PreviewPlatform(dir: File) : Platform {

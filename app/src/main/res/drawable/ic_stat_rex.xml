@@ -1,18 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 通知列小圖示：轉速錶（270° 弧＋紅區刻度＋指針），單色白，系統自動上色 -->
+<!-- 通知列小圖示：櫻花（單色白，系統自動上色） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <!-- 外弧：從左下 (225°) 繞上到右下 (-45°) -->
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="2.2"
-        android:strokeLineCap="round"
-        android:pathData="M5.64,18.36 A9,9 0 1,1 18.36,18.36" />
-    <!-- 紅區：右側加粗一段 -->
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="4"
-        android:strokeLineCap="butt"
-        android:pathData="M20.6,9.2 A9,9 0 0,1 18.36,18.36" />
-    <!-- 指針 -->
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFFFFF" android:strokeWidth="2.2"
-        android:strokeLineCap="round" android:pathData="M12,13 L17,6.5" />
-    <!-- 軸心 -->
-    <path android:fillColor="#FFFFFFFF" android:pathData="M12,13m-2,0a2,2 0 1,0 4,0a2,2 0 1,0 -4,0" />
+    <group android:rotation="0" android:pivotX="12" android:pivotY="12.6">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M12.00,11.96 C8.82,9.95 8.18,5.18 9.88,2.85 C10.62,2.00 11.47,2.00 11.79,2.53 L12.00,3.48 L12.21,2.53 C12.53,2.00 13.38,2.00 14.12,2.85 C15.82,5.18 15.18,9.95 12.00,11.96 Z" />
+    </group>
+    <group android:rotation="72" android:pivotX="12" android:pivotY="12.6">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M12.00,11.96 C8.82,9.95 8.18,5.18 9.88,2.85 C10.62,2.00 11.47,2.00 11.79,2.53 L12.00,3.48 L12.21,2.53 C12.53,2.00 13.38,2.00 14.12,2.85 C15.82,5.18 15.18,9.95 12.00,11.96 Z" />
+    </group>
+    <group android:rotation="144" android:pivotX="12" android:pivotY="12.6">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M12.00,11.96 C8.82,9.95 8.18,5.18 9.88,2.85 C10.62,2.00 11.47,2.00 11.79,2.53 L12.00,3.48 L12.21,2.53 C12.53,2.00 13.38,2.00 14.12,2.85 C15.82,5.18 15.18,9.95 12.00,11.96 Z" />
+    </group>
+    <group android:rotation="216" android:pivotX="12" android:pivotY="12.6">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M12.00,11.96 C8.82,9.95 8.18,5.18 9.88,2.85 C10.62,2.00 11.47,2.00 11.79,2.53 L12.00,3.48 L12.21,2.53 C12.53,2.00 13.38,2.00 14.12,2.85 C15.82,5.18 15.18,9.95 12.00,11.96 Z" />
+    </group>
+    <group android:rotation="288" android:pivotX="12" android:pivotY="12.6">
+        <path android:fillColor="#FFFFFFFF" android:pathData="M12.00,11.96 C8.82,9.95 8.18,5.18 9.88,2.85 C10.62,2.00 11.47,2.00 11.79,2.53 L12.00,3.48 L12.21,2.53 C12.53,2.00 13.38,2.00 14.12,2.85 C15.82,5.18 15.18,9.95 12.00,11.96 Z" />
+    </group>
+    <path android:fillColor="#00000000" android:strokeColor="#FF000000" android:strokeWidth="0"
+        android:pathData="M12,12m-1,0a1,1 0 1,0 2,0a1,1 0 1,0 -2,0" />
 </vector>

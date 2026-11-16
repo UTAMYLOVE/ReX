@@ -9,7 +9,7 @@ import platform.UIKit.UIViewController
 import kotlinx.coroutines.flow.first
 import rx.session.SessionState
 import kotlinx.coroutines.launch
-import io.github.xeno_hf.rex.ui.ReXApp
+import io.github.xeno_hf.rex.ui.YozakuraApp
 import io.github.xeno_hf.rex.ui.Strings
 import io.github.xeno_hf.rex.ui.Toasts
 
@@ -57,7 +57,7 @@ fun MainViewController(): UIViewController {
         // -rexRecord YES：連上就錄（體驗模式平常不自動錄），驗收錄製檔用
         if (args.boolForKey("rexRecord")) { repo.state.first { it == SessionState.Streaming }; repo.startRecording() }
     }
-    return ComposeUIViewController { ReXApp(repo, startTab = args.stringForKey("rexTab")) }
+    return ComposeUIViewController { YozakuraApp(repo, startTab = args.stringForKey("rexTab")) }
 }
 
 /** Swift 呼叫：AppDelegate 的 application(_:open:options:)。 */

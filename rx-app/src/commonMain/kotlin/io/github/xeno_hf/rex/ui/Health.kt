@@ -72,7 +72,7 @@ fun HealthScreen(session: SessionDir, onClose: () -> Unit) {
             TextButton(onClick = onClose) { Text("‹ " + stringResource(R.string.health_back)) }
             Text(stringResource(R.string.health_title), fontWeight = FontWeight.Bold, fontSize = 17.sp)
             Spacer(Modifier.weight(1f))
-            Text(session.dir.name, color = RxColors.muted, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+            Text(rideTitle(session.dir.name), color = RxColors.muted, fontSize = 12.sp)
         }
         val r = report
         val e = error
@@ -151,7 +151,7 @@ fun HealthTrend(onOpen: (kotlinx.io.files.Path) -> Unit) {
             Row(Modifier.fillMaxWidth().clickable { onOpen(e.dir) }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("${e.report.score}", style = digits(20.sp, FontWeight.ExtraBold), color = levelColor(e.report.level), modifier = Modifier.width(44.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(e.dir.name.substringAfter('_'), fontSize = 12.sp, color = RxColors.muted, fontFamily = FontFamily.Monospace)
+                    Text(rideTitle(e.dir.name), fontSize = 12.sp, color = RxColors.muted)
                     Text(top?.let(::findingString) ?: stringResource(R.string.health_none), fontSize = 13.sp, maxLines = 2)
                 }
                 if (e.ai != null) Badge("AI", RxColors.brandInk)
@@ -173,7 +173,7 @@ internal fun HealthReportBody(r: EngineHealth.Report, modifier: Modifier = Modif
     }
 }
 
-private fun levelColor(l: Level): Color = when (l) {
+internal fun levelColor(l: Level): Color = when (l) {
     Level.OK -> RxColors.accent
     Level.INFO -> RxColors.muted
     Level.WARN -> RxColors.warn

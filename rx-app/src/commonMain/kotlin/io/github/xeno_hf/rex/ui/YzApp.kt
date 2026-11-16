@@ -1,0 +1,450 @@
+package io.github.xeno_hf.rex.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import io.github.xeno_hf.rex.Repo
+import io.github.xeno_hf.rex.Target
+import io.github.xeno_hf.rex.res.R
+import kotlinx.coroutines.launch
+import rx.session.EcuFinder
+import rx.session.Presets
+import rx.session.SessionState
+
+/*
+ * 夜櫻的外殼：頂列（字標＋連線狀態）、三個分頁（監控／健檢／設定）、連線狀態視窗、連線設定。
+ * ReX 原本的畫面（儀表、示波、通道、更多）都不放；它們的程式還在，只是夜櫻不用。
+ */
+
+internal enum class YzTab(val label: Int, val icon: ImageVector) {
+    Monitor(R.string.tab_monitor, Icons.Filled.Home),
+    Health(R.string.tab_health, Icons.Filled.Favorite),
+    Settings(R.string.tab_settings, Icons.Filled.Settings),
+}
+
+/** 夜櫻進入點：主題＋Repo＋畫面。[startTab]＝開啟時的頁籤名稱（預覽截圖用，平常是 null）。 */
+@Composable
+fun YozakuraApp(repo: Repo, startTab: String? = null) {
+    CompositionLocalProvider(LocalRepo provides repo) {
+        val theme by repo.theme.collectAsState()
+        RxTheme(theme) {
+            Box(Modifier.fillMaxSize()) {
+                YzRoot(startTab)
+                YzToastHost(Modifier.align(Alignment.BottomCenter))
+                val control by repo.lastControl.collectAsState()
+                LaunchedEffect(control) { control?.let { Toasts.show(yzControlText(it)) } }
+            }
+        }
+    }
+}
+
+private fun yzControlText(m: Repo.ControlMsg): String = when (m.outcome) {
+    Repo.ControlMsg.Outcome.ON -> Strings.get(R.string.ctl_on, m.label)
+    Repo.ControlMsg.Outcome.OFF -> Strings.get(R.string.ctl_off, m.label)
+    Repo.ControlMsg.Outcome.MAP_OK -> Strings.get(R.string.ctl_map_ok, m.label)
+    Repo.ControlMsg.Outcome.NEEDS_LOGIN -> Strings.get(R.string.ctl_needs_login, m.label)
+    Repo.ControlMsg.Outcome.NOT_LICENSED -> Strings.get(R.string.ctl_not_licensed, m.label)
+    Repo.ControlMsg.Outcome.REFUSED -> Strings.get(R.string.ctl_refused, m.label, m.detail ?: "")
+    Repo.ControlMsg.Outcome.ERROR -> Strings.get(R.string.ctl_error, m.label, m.detail ?: "")
+    Repo.ControlMsg.Outcome.NOT_CONNECTED -> Strings.get(R.string.ctl_not_connected, m.label)
+    Repo.ControlMsg.Outcome.DEMO -> Strings.get(R.string.ctl_demo, m.label)
+    Repo.ControlMsg.Outcome.UNVERIFIED -> Strings.get(R.string.ctl_unverified, m.label, m.detail ?: "")
+    Repo.ControlMsg.Outcome.LOCKED -> Strings.get(R.string.ctl_locked, m.label)
+}
+
+@Composable
+private fun YzToastHost(modifier: Modifier) {
+    val msg = Toasts.message ?: return
+    val serial = Toasts.serial
+    var visible by remember(serial) { mutableStateOf(true) }
+    LaunchedEffect(serial) { kotlinx.coroutines.delay(2500); visible = false }
+    if (visible) Text(
+        msg, color = RxColors.text, fontSize = 14.sp,
+        modifier = modifier.windowInsetsPadding(WindowInsets.safeDrawing).padding(bottom = 84.dp, start = 24.dp, end = 24.dp)
+            .background(RxColors.cardHi, RoundedCornerShape(12.dp)).border(1.dp, RxColors.line, RoundedCornerShape(12.dp))
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+    )
+}
+
+@Composable
+private fun YzRoot(startTab: String?) {
+    val repo = LocalRepo.current
+    val registry by repo.registry.collectAsState()
+    val target by repo.target.collectAsState()
+    val open by repo.openRequest.collectAsState()
+    var tab by rememberSaveable { mutableStateOf(YzTab.entries.firstOrNull { it.name.equals(startTab, ignoreCase = true) } ?: YzTab.Monitor) }
+    var showConnect by remember { mutableStateOf(false) }
+    var showSheet by remember { mutableStateOf(false) }
+
+    LaunchedEffect(target) { repo.platform.keepScreenOn(target != null && repo.keepScreenOn) }
+    // 開好就自動連上次的車；騎乘健檢清單也在這時讀進來
+    LaunchedEffect(registry != null) { if (registry != null) { repo.autoConnectIfIdle(); repo.loadHealthHistory() } }
+    // 通知或監控頁要求打開某個畫面
+    LaunchedEffect(open) {
+        when (open) {
+            Repo.OPEN_MAP -> tab = YzTab.Monitor
+            Repo.OPEN_HEALTH -> tab = YzTab.Health
+        }
+    }
+
+    val loadingDefs by repo.registryLoading.collectAsState()
+    if (registry == null) {
+        Box(Modifier.fillMaxSize().rxBackground()) {
+            if (loadingDefs) Text(stringResource(R.string.loading), color = RxColors.muted, modifier = Modifier.align(Alignment.Center)) else ImportScreen()
+        }
+        return
+    }
+
+    val content: @Composable () -> Unit = {
+        when (tab) {
+            YzTab.Monitor -> Box(Modifier.fillMaxSize()) {
+                MonitorScreen()
+                if (target == null) YzIdleHint(onSettings = { showConnect = true })
+            }
+            YzTab.Health -> YzHealthTab()
+            YzTab.Settings -> YzSettings(onEditConnection = { showConnect = true }, onStatus = { showSheet = true })
+        }
+    }
+
+    if (isLandscape()) {
+        Row(Modifier.fillMaxSize().rxBackground().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            Column(
+                Modifier.width(76.dp).fillMaxHeight().background(RxColors.card.copy(alpha = 0.92f)).padding(vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                YzWordmark(compact = true)
+                Spacer(Modifier.height(8.dp))
+                YzStatusChip(compact = true) { showSheet = true }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.SpaceEvenly) {
+                    YzTab.entries.forEach { t -> YzRailItem(t, tab == t) { tab = t } }
+                }
+            }
+            Box(Modifier.weight(1f).fillMaxSize()) { content() }
+        }
+    } else {
+        Column(Modifier.fillMaxSize().rxBackground()) {
+            YzTopBar(onStatus = { showSheet = true })
+            Box(Modifier.weight(1f).fillMaxWidth()) { content() }
+            YzTabBar(tab) { tab = it }
+        }
+    }
+    if (showSheet) YzConnSheet(onDismiss = { showSheet = false }, onEdit = { showSheet = false; showConnect = true })
+    if (showConnect) YzConnectDialog(onDismiss = { showConnect = false })
+}
+
+// ---------------- 頂列、頁籤 ----------------
+
+@Composable
+internal fun YzWordmark(compact: Boolean = false) {
+    Column(horizontalAlignment = if (compact) Alignment.CenterHorizontally else Alignment.Start) {
+        Text(stringResource(R.string.app_name), color = RxColors.brand, fontSize = if (compact) 20.sp else 24.sp, fontWeight = FontWeight.Black, lineHeight = if (compact) 22.sp else 26.sp)
+        Text("YOZAKURA", color = RxColors.muted, style = digits(if (compact) 7.sp else 8.sp, FontWeight.Bold).copy(letterSpacing = 2.sp))
+    }
+}
+
+@Composable
+private fun YzTopBar(onStatus: () -> Unit) {
+    val repo = LocalRepo.current
+    val target by repo.target.collectAsState()
+    val connect = rememberYzConnect()
+    Row(
+        Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+            .height(60.dp).padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        YzWordmark()
+        Spacer(Modifier.width(14.dp))
+        YzStatusChip(onClick = onStatus)
+        Spacer(Modifier.weight(1f))
+        if (target == null) Button(onClick = connect) { Text(stringResource(R.string.connect)) }
+    }
+}
+
+@Composable
+private fun YzTabBar(tab: YzTab, onSelect: (YzTab) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(RxColors.card)
+            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)).height(62.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        YzTab.entries.forEach { t ->
+            val sel = tab == t
+            val tint = if (sel) RxColors.brandInk else RxColors.muted
+            Column(
+                Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = null, indication = null) { onSelect(t) },
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+            ) {
+                Box(Modifier.size(56.dp, 28.dp).clip(RoundedCornerShape(14.dp)).background(if (sel) RxColors.brand.copy(alpha = 0.18f) else Color.Transparent), contentAlignment = Alignment.Center) {
+                    Icon(t.icon, null, tint = tint, modifier = Modifier.size(22.dp))
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(stringResource(t.label), color = tint, fontSize = 11.sp, fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal, maxLines = 1)
+            }
+        }
+    }
+}
+
+@Composable
+private fun YzRailItem(t: YzTab, selected: Boolean, onClick: () -> Unit) {
+    val c = if (selected) RxColors.brandInk else RxColors.muted
+    Column(
+        Modifier.width(60.dp).clip(RoundedCornerShape(14.dp)).background(if (selected) RxColors.brand.copy(alpha = 0.16f) else Color.Transparent)
+            .clickable(onClick = onClick).padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(t.icon, null, tint = c, modifier = Modifier.size(22.dp))
+        Text(stringResource(t.label), fontSize = 11.sp, lineHeight = 14.sp, color = c)
+    }
+}
+
+// ---------------- 連線狀態 ----------------
+
+/** 狀態的顏色與短字（頂列 chip 用）。 */
+@Composable
+private fun yzState(state: SessionState, stopped: Boolean): Pair<Color, String> = when (state) {
+    SessionState.Streaming -> RxColors.accent to stringResource(R.string.st_connected)
+    is SessionState.Arming -> RxColors.warn to stringResource(R.string.st_connecting)
+    is SessionState.NoBroadcast -> RxColors.warn to stringResource(R.string.st_waiting)
+    is SessionState.Connecting -> RxColors.warn to stringResource(R.string.st_connecting)
+    is SessionState.Reconnecting -> RxColors.danger to stringResource(R.string.st_reconnecting)
+    else -> RxColors.muted to stringResource(if (stopped) R.string.yz_idle_stopped else R.string.not_connected)
+}
+
+/** 點一下打開連線狀態視窗。 */
+@Composable
+internal fun YzStatusChip(compact: Boolean = false, onClick: (() -> Unit)?) {
+    val repo = LocalRepo.current
+    val state by repo.state.collectAsState()
+    val stopped by repo.userStopped.collectAsState()
+    val (color, text) = yzState(state, stopped)
+    val shape = RoundedCornerShape(16.dp)
+    val m = Modifier.clip(shape).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+        .border(1.dp, color.copy(alpha = 0.45f), shape).background(color.copy(alpha = 0.08f), shape)
+    if (compact) {
+        Column(m.padding(horizontal = 6.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            CrystalDot(color, state == SessionState.Streaming, Modifier.size(12.dp))
+            Text(text, color = color, fontSize = 11.sp, lineHeight = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        }
+    } else {
+        Row(m.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            CrystalDot(color, state == SessionState.Streaming, Modifier.size(12.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(text, color = color, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        }
+    }
+}
+
+/** 一句話說明現在的狀態，以及使用者該做什麼。 */
+@Composable
+internal fun yzStateExplain(state: SessionState, connected: Boolean, stopped: Boolean): String = stringResource(
+    when {
+        !connected -> if (stopped) R.string.yz_state_stopped else R.string.yz_state_idle
+        state == SessionState.Streaming -> R.string.yz_state_streaming
+        state is SessionState.NoBroadcast -> R.string.yz_state_waiting
+        state is SessionState.Reconnecting -> R.string.yz_state_reconnecting
+        else -> R.string.yz_state_connecting
+    },
+)
+
+/** 用存好的設定連線（需要時先要定位權限）。 */
+@Composable
+internal fun rememberYzConnect(): () -> Unit {
+    val repo = LocalRepo.current
+    val ask = rememberLocationPermission { repo.connect(Target.Ecu(repo.host.trim())) }
+    return {
+        val needLocation = (repo.gpsEnabled.value || repo.platform.backgroundNeedsLocation) && !repo.gps.hasPermission()
+        if (needLocation) ask() else repo.connect(Target.Ecu(repo.host.trim()))
+    }
+}
+
+/** 點狀態 chip 跳出來的小視窗：現在怎樣、連線設定、中斷連線（會先確認）。 */
+@Composable
+private fun YzConnSheet(onDismiss: () -> Unit, onEdit: () -> Unit) {
+    val repo = LocalRepo.current
+    val state by repo.state.collectAsState()
+    val target by repo.target.collectAsState()
+    val stopped by repo.userStopped.collectAsState()
+    val rec by repo.recording.collectAsState()
+    val ap by repo.ecuAp.collectAsState()
+    val connect = rememberYzConnect()
+    var confirm by remember { mutableStateOf<Int?>(null) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = RxColors.card,
+        title = { Text(stringResource(R.string.yz_conn_title)) },
+        text = {
+            Column {
+                YzStatusChip(onClick = null)
+                Spacer(Modifier.height(10.dp))
+                Text(yzStateExplain(state, target != null, stopped), fontSize = 14.sp)
+                Spacer(Modifier.height(8.dp))
+                Mono("${stringResource(R.string.conn_host)}  ${repo.host}", RxColors.muted)
+                ap?.let { Mono("WiFi  $it", RxColors.muted) }
+                Spacer(Modifier.height(14.dp))
+                if (target == null) {
+                    Button(onClick = { connect(); onDismiss() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.connect)) }
+                } else {
+                    OutlinedButton(onClick = { confirm = R.string.yz_conn_stop_text }, modifier = Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.yz_conn_stop), color = RxColors.danger)
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                OutlinedButton(onClick = { if (target != null && rec != null) confirm = R.string.yz_conn_edit_text else onEdit() }, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.yz_conn_settings), color = RxColors.text)
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
+    )
+    confirm?.let { what ->
+        AlertDialog(
+            onDismissRequest = { confirm = null },
+            containerColor = RxColors.card,
+            title = { Text(stringResource(if (what == R.string.yz_conn_stop_text) R.string.yz_conn_stop_title else R.string.yz_conn_settings)) },
+            text = { Text(stringResource(what)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirm = null
+                    if (what == R.string.yz_conn_stop_text) { repo.stopByUser(); onDismiss() } else onEdit()
+                }) { Text(stringResource(R.string.yz_confirm), color = if (what == R.string.yz_conn_stop_text) RxColors.danger else RxColors.brandInk) }
+            },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
+/** 監控頁沒連線時蓋在上面的提示。 */
+@Composable
+private fun YzIdleHint(onSettings: () -> Unit) {
+    val repo = LocalRepo.current
+    val stopped by repo.userStopped.collectAsState()
+    val connect = rememberYzConnect()
+    Box(Modifier.fillMaxSize().background(RxColors.bg.copy(alpha = 0.94f)), contentAlignment = Alignment.Center) {
+        Column(Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(stringResource(if (stopped) R.string.yz_idle_stopped else R.string.yz_idle_title), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(if (stopped) R.string.yz_state_stopped else R.string.yz_idle_hint), color = RxColors.muted, fontSize = 13.sp, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(18.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(onClick = connect) { Text(stringResource(R.string.connect)) }
+                OutlinedButton(onClick = onSettings) { Text(stringResource(R.string.yz_conn_settings), color = RxColors.text) }
+            }
+        }
+    }
+}
+
+/** 連線設定：只放騎士用得到的（車子位址、ECU 密碼、車子的 WiFi）。通道固定全部，網路模式固定自動。 */
+@Composable
+private fun YzConnectDialog(onDismiss: () -> Unit) {
+    val repo = LocalRepo.current
+    val scope = rememberCoroutineScope()
+    var host by remember { mutableStateOf(repo.host) }
+    var pw by remember { mutableStateOf(repo.secrets.get() ?: "") }
+    var ssid by remember { mutableStateOf(repo.ecuSsid) }
+    var wpw by remember { mutableStateOf(repo.ecuWifiPw) }
+    var scanning by remember { mutableStateOf(false) }
+    var found by remember { mutableStateOf<List<String>?>(null) }
+    val connect = rememberYzConnect()
+    fun save() {
+        repo.host = host.trim(); repo.secrets.put(pw.trim().ifEmpty { null })
+        repo.ecuSsid = ssid; repo.ecuWifiPw = wpw; repo.presetId = Presets.ALL_CHANNELS.id
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = RxColors.card,
+        title = { Text(stringResource(R.string.yz_conn_settings)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(host, { host = it }, label = { Text(stringResource(R.string.conn_host)) }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(enabled = !scanning, onClick = {
+                        scanning = true; found = null
+                        scope.launch {
+                            val finder = repo.platform.ecuFinder()
+                            found = runCatching { finder.find(listOf(EcuFinder.KnownHost(host.trim()))).map { it.probe.host } }
+                                .getOrElse { if (it is kotlinx.coroutines.CancellationException) throw it; emptyList() }
+                            found?.singleOrNull()?.let { host = it }
+                            scanning = false
+                        }
+                    }) { Text(stringResource(if (scanning) R.string.conn_finding else R.string.conn_find)) }
+                    if (scanning) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                }
+                found?.let { list ->
+                    if (list.isEmpty()) Text(stringResource(R.string.conn_not_found), color = RxColors.warn, fontSize = 12.sp)
+                    if (list.size > 1) list.forEach { h -> Text("● $h", color = RxColors.accent, modifier = Modifier.clickable { host = h }.padding(4.dp)) }
+                }
+                Spacer(Modifier.height(6.dp))
+                OutlinedTextField(pw, { pw = it.filter(Char::isDigit) }, label = { Text(stringResource(R.string.conn_password)) }, singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    modifier = Modifier.fillMaxWidth())
+                if (repo.platform.supportsNetworkBinding) {
+                    Spacer(Modifier.height(14.dp))
+                    Text(stringResource(R.string.conn_bike_wifi), fontWeight = FontWeight.Bold)
+                    OutlinedTextField(ssid, { ssid = it }, label = { Text(stringResource(R.string.conn_wifi_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    if (ssid.isNotBlank()) OutlinedTextField(wpw, { wpw = it }, label = { Text(stringResource(R.string.conn_wifi_password)) }, singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth())
+                    Text(stringResource(R.string.conn_wifi_hint), color = RxColors.muted, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { save(); connect(); onDismiss() }, enabled = host.isNotBlank()) { Text(stringResource(R.string.yz_conn_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}

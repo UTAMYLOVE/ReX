@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -86,8 +85,7 @@ import io.github.xeno_hf.rex.Repo
 import io.github.xeno_hf.rex.Target
 
 private enum class Tab(val label: Int, val icon: ImageVector) {
-    Monitor(R.string.tab_monitor, Icons.Filled.Home),
-    Dash(R.string.tab_dash, Icons.Filled.PlayArrow),
+    Dash(R.string.tab_dash, Icons.Filled.Home),
     Scope(R.string.tab_scope, Icons.Filled.DateRange),
     Channels(R.string.tab_channels, Icons.AutoMirrored.Filled.List),
     Records(R.string.tab_records, Icons.Filled.Star),
@@ -160,12 +158,10 @@ fun RxRoot(startTab: String? = null) {
     val state by repo.state.collectAsState()
     val rec by repo.recording.collectAsState()
     val target by repo.target.collectAsState()
-    var tab by rememberSaveable { mutableStateOf(Tab.entries.firstOrNull { it.name.equals(startTab, ignoreCase = true) } ?: Tab.Monitor) }
+    var tab by rememberSaveable { mutableStateOf(Tab.entries.firstOrNull { it.name.equals(startTab, ignoreCase = true) } ?: Tab.Dash) }
     var showConnect by remember { mutableStateOf(false) }
 
     LaunchedEffect(target) { repo.platform.keepScreenOn(target != null && repo.keepScreenOn) }
-    // 開 App 自動連上次的 ECU；騎乘健檢清單也在這時讀進來
-    LaunchedEffect(registry != null) { if (registry != null) { repo.autoConnectOnce(); repo.loadHealthHistory() } }
 
     val loadingDefs by repo.registryLoading.collectAsState()
     if (registry == null) {
@@ -177,7 +173,6 @@ fun RxRoot(startTab: String? = null) {
 
     val content: @Composable () -> Unit = {
         when (tab) {
-            Tab.Monitor -> MonitorScreen()
             Tab.Dash -> DashboardScreen()
             Tab.Scope -> ScopeScreen()
             Tab.Channels -> ChannelsScreen()
@@ -217,7 +212,7 @@ fun RxRoot(startTab: String? = null) {
             }
             CompositionLocalProvider(LocalBarActions provides actions) {
                 Column(Modifier.weight(1f).fillMaxSize()) {
-                    if (tab != Tab.Dash && tab != Tab.Monitor) Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)) { Spacer(Modifier.weight(1f)); actions() }
+                    if (tab != Tab.Dash) Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp)) { Spacer(Modifier.weight(1f)); actions() }
                     Box(Modifier.weight(1f).fillMaxWidth()) { content() }
                 }
             }
