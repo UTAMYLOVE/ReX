@@ -129,6 +129,9 @@ private fun YzRoot(startTab: String?) {
     var tab by rememberSaveable { mutableStateOf(YzTab.entries.firstOrNull { it.name.equals(startTab, ignoreCase = true) } ?: YzTab.Monitor) }
     var showConnect by remember { mutableStateOf(false) }
     var showSheet by remember { mutableStateOf(false) }
+    var confirmEdit by remember { mutableStateOf(false) }
+    // 改連線設定會重新連線：錄製中先確認（狀態視窗、設定頁、沒連線提示都走這裡）
+    val editConnection = { if (repo.target.value != null && repo.recording.value != null) confirmEdit = true else showConnect = true }
 
     LaunchedEffect(target) { repo.platform.keepScreenOn(target != null && repo.keepScreenOn) }
     // 開好就自動連上次的車；騎乘健檢清單也在這時讀進來
@@ -153,10 +156,10 @@ private fun YzRoot(startTab: String?) {
         when (tab) {
             YzTab.Monitor -> Box(Modifier.fillMaxSize()) {
                 MonitorScreen()
-                if (target == null) YzIdleHint(onSettings = { showConnect = true })
+                if (target == null) YzIdleHint(onSettings = editConnection)
             }
             YzTab.Health -> YzHealthTab()
-            YzTab.Settings -> YzSettings(onEditConnection = { showConnect = true }, onStatus = { showSheet = true })
+            YzTab.Settings -> YzSettings(onEditConnection = editConnection, onStatus = { showSheet = true })
         }
     }
 
@@ -182,8 +185,16 @@ private fun YzRoot(startTab: String?) {
             YzTabBar(tab) { tab = it }
         }
     }
-    if (showSheet) YzConnSheet(onDismiss = { showSheet = false }, onEdit = { showSheet = false; showConnect = true })
+    if (showSheet) YzConnSheet(onDismiss = { showSheet = false }, onEdit = { showSheet = false; editConnection() })
     if (showConnect) YzConnectDialog(onDismiss = { showConnect = false })
+    if (confirmEdit) AlertDialog(
+        onDismissRequest = { confirmEdit = false },
+        containerColor = RxColors.card,
+        title = { Text(stringResource(R.string.yz_conn_settings)) },
+        text = { Text(stringResource(R.string.yz_conn_edit_text)) },
+        confirmButton = { TextButton(onClick = { confirmEdit = false; showConnect = true }) { Text(stringResource(R.string.yz_confirm), color = RxColors.brandInk) } },
+        dismissButton = { TextButton(onClick = { confirmEdit = false }) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 // ---------------- 頂列、頁籤 ----------------
@@ -300,14 +311,17 @@ internal fun yzStateExplain(state: SessionState, connected: Boolean, stopped: Bo
     },
 )
 
-/** 用存好的設定連線（需要時先要定位權限）。 */
+/**
+ * 用存好的設定連線（需要時先要定位權限，給不給都會連）。[onDone] 在真的送出連線之後才呼叫：
+ * 要權限時視窗要等回答回來才能關，不然權限結果回來時接收的元件已經不在，連線就不會送出。
+ */
 @Composable
-internal fun rememberYzConnect(): () -> Unit {
+internal fun rememberYzConnect(onDone: () -> Unit = {}): () -> Unit {
     val repo = LocalRepo.current
-    val ask = rememberLocationPermission { repo.connect(Target.Ecu(repo.host.trim())) }
+    val ask = rememberLocationPermission { repo.connect(Target.Ecu(repo.host.trim())); onDone() }
     return {
         val needLocation = (repo.gpsEnabled.value || repo.platform.backgroundNeedsLocation) && !repo.gps.hasPermission()
-        if (needLocation) ask() else repo.connect(Target.Ecu(repo.host.trim()))
+        if (needLocation) ask() else { repo.connect(Target.Ecu(repo.host.trim())); onDone() }
     }
 }
 
@@ -318,10 +332,9 @@ private fun YzConnSheet(onDismiss: () -> Unit, onEdit: () -> Unit) {
     val state by repo.state.collectAsState()
     val target by repo.target.collectAsState()
     val stopped by repo.userStopped.collectAsState()
-    val rec by repo.recording.collectAsState()
     val ap by repo.ecuAp.collectAsState()
-    val connect = rememberYzConnect()
-    var confirm by remember { mutableStateOf<Int?>(null) }
+    val connect = rememberYzConnect(onDone = onDismiss)
+    var confirmStop by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = RxColors.card,
@@ -336,35 +349,28 @@ private fun YzConnSheet(onDismiss: () -> Unit, onEdit: () -> Unit) {
                 ap?.let { Mono("WiFi  $it", RxColors.muted) }
                 Spacer(Modifier.height(14.dp))
                 if (target == null) {
-                    Button(onClick = { connect(); onDismiss() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.connect)) }
+                    Button(onClick = { connect() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.connect)) }
                 } else {
-                    OutlinedButton(onClick = { confirm = R.string.yz_conn_stop_text }, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { confirmStop = true }, modifier = Modifier.fillMaxWidth()) {
                         Text(stringResource(R.string.yz_conn_stop), color = RxColors.danger)
                     }
                 }
                 Spacer(Modifier.height(6.dp))
-                OutlinedButton(onClick = { if (target != null && rec != null) confirm = R.string.yz_conn_edit_text else onEdit() }, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.yz_conn_settings), color = RxColors.text)
                 }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
     )
-    confirm?.let { what ->
-        AlertDialog(
-            onDismissRequest = { confirm = null },
-            containerColor = RxColors.card,
-            title = { Text(stringResource(if (what == R.string.yz_conn_stop_text) R.string.yz_conn_stop_title else R.string.yz_conn_settings)) },
-            text = { Text(stringResource(what)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirm = null
-                    if (what == R.string.yz_conn_stop_text) { repo.stopByUser(); onDismiss() } else onEdit()
-                }) { Text(stringResource(R.string.yz_confirm), color = if (what == R.string.yz_conn_stop_text) RxColors.danger else RxColors.brandInk) }
-            },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text(stringResource(R.string.cancel)) } },
-        )
-    }
+    if (confirmStop) AlertDialog(
+        onDismissRequest = { confirmStop = false },
+        containerColor = RxColors.card,
+        title = { Text(stringResource(R.string.yz_conn_stop_title)) },
+        text = { Text(stringResource(R.string.yz_conn_stop_text)) },
+        confirmButton = { TextButton(onClick = { confirmStop = false; repo.stopByUser(); onDismiss() }) { Text(stringResource(R.string.yz_confirm), color = RxColors.danger) } },
+        dismissButton = { TextButton(onClick = { confirmStop = false }) { Text(stringResource(R.string.cancel)) } },
+    )
 }
 
 /** 監控頁沒連線時蓋在上面的提示。 */
@@ -398,7 +404,8 @@ private fun YzConnectDialog(onDismiss: () -> Unit) {
     var wpw by remember { mutableStateOf(repo.ecuWifiPw) }
     var scanning by remember { mutableStateOf(false) }
     var found by remember { mutableStateOf<List<String>?>(null) }
-    val connect = rememberYzConnect()
+    val connect = rememberYzConnect(onDone = onDismiss)
+    fun changed() = host.trim() != repo.host || pw.trim() != (repo.secrets.get() ?: "") || ssid.trim() != repo.ecuSsid || wpw != repo.ecuWifiPw
     fun save() {
         repo.host = host.trim(); repo.secrets.put(pw.trim().ifEmpty { null })
         repo.ecuSsid = ssid; repo.ecuWifiPw = wpw; repo.presetId = Presets.ALL_CHANNELS.id
@@ -443,7 +450,10 @@ private fun YzConnectDialog(onDismiss: () -> Unit) {
             }
         },
         confirmButton = {
-            Button(onClick = { save(); connect(); onDismiss() }, enabled = host.isNotBlank()) { Text(stringResource(R.string.yz_conn_save)) }
+            Button(onClick = {
+                // 已經連著、設定也沒改：不用重連（重連會把這趟錄製切斷）
+                if (repo.target.value != null && !changed()) onDismiss() else { save(); connect() }
+            }, enabled = host.isNotBlank()) { Text(stringResource(R.string.yz_conn_save)) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )

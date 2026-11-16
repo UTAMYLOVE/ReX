@@ -265,7 +265,9 @@ private fun FaultWindow(onDismiss: () -> Unit) {
     val repo = LocalRepo.current
     val live by repo.live.collectAsState()
     val seen by repo.malfSeen.collectAsState()
-    val l = live
+    val state by repo.state.collectAsState()
+    // 斷線或資料停了：不顯示「沒有故障」，避免拿舊資料讓人以為沒事
+    val l = live?.takeIf { state == SessionState.Streaming && (repo.platform.elapsedNanos() - it.tNanos) < 3_000_000_000L }
     val active = l?.layout?.activeMalfunctions(l.raw).orEmpty()
     AlertDialog(
         onDismissRequest = onDismiss,

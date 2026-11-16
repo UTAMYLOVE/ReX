@@ -114,10 +114,12 @@ fun YzHealthTab() {
     var confirmShare by remember { mutableStateOf<SessionDir?>(null) }
     var report by remember { mutableStateOf<Path?>(null) }
     val scope = rememberCoroutineScope()
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val loaded by repo.healthLoaded.collectAsState()
 
-    // 點健檢通知、或監控頁的「上趟健檢」：直接打開最新一趟的報告
-    LaunchedEffect(open) {
-        if (open == Repo.OPEN_HEALTH) {
+    // 點健檢通知、或監控頁的「上趟健檢」：直接打開最新一趟的報告（App 剛開時等清單讀完）
+    LaunchedEffect(open, loaded) {
+        if (open == Repo.OPEN_HEALTH && loaded) {
             repo.openRequest.value = null
             repo.healthHistory.value.firstOrNull()?.let { report = it.dir }
         }
@@ -130,7 +132,7 @@ fun YzHealthTab() {
         return
     }
 
-    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp), state = listState, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         item(key = "top") { Spacer(Modifier.height(4.dp)) }
         item(key = "trend") { HealthTrend { d -> report = d } }
         item(key = "title") { Text(stringResource(R.string.yz_rides, list.size), fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp, start = 4.dp)) }
@@ -219,12 +221,13 @@ fun YzHealthTab() {
 @Composable
 fun YzSettings(onEditConnection: () -> Unit, onStatus: () -> Unit) {
     var showLog by remember { mutableStateOf(false) }
+    val scroll = rememberScrollState()
     if (showLog) { YzLogPage { showLog = false }; return }
     val repo = LocalRepo.current
     val state by repo.state.collectAsState()
     val target by repo.target.collectAsState()
     val stopped by repo.userStopped.collectAsState()
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 12.dp)) {
         YzSection(stringResource(R.string.yz_conn_title)) {
             YzStatusChip(onClick = onStatus)
             Text(yzStateExplain(state, target != null, stopped), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))

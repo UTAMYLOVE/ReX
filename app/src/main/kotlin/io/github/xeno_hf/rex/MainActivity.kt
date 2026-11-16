@@ -42,6 +42,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         (application as RxApp).platform.overlay?.appVisible = true
+        repo().appVisible = true
         // 回到 App：沒連線、使用者也沒自己停掉，就自動連
         repo().autoConnectIfIdle()
     }
@@ -50,6 +51,7 @@ class MainActivity : ComponentActivity() {
         super.onStop()
         // 離開 App（例如切到導航）：連線中就顯示懸浮小儀表
         (application as RxApp).platform.overlay?.appVisible = false
+        repo().appVisible = false
     }
 
     override fun onResume() {
@@ -67,7 +69,11 @@ class MainActivity : ComponentActivity() {
 
     /** 點通知進來：打開對應的畫面（油圖視窗、最新一趟健檢）。 */
     private fun handleOpen(intent: android.content.Intent?) {
-        intent?.getStringExtra(EXTRA_OPEN)?.let { repo().openRequest.value = it }
+        intent ?: return
+        // 從最近使用清單重開時，系統會把當初的 intent 再給一次：不要再跳一次
+        if (intent.flags and android.content.Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return
+        intent.getStringExtra(EXTRA_OPEN)?.let { repo().openRequest.value = it }
+        intent.removeExtra(EXTRA_OPEN)
     }
 
     companion object { const val EXTRA_OPEN = "yozakura.open" }

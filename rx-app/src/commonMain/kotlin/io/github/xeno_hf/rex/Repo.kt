@@ -268,12 +268,22 @@ class Repo(val platform: Platform) {
     var autoConnect: Boolean
         get() = prefs.getBoolean("autoConnect", true)
         set(v) = prefs.putBoolean("autoConnect", v)
-    /** 使用者自己按了「中斷連線」或通知上的「結束」：之後回到 App 不再自動連，等使用者手動按連線。 */
-    val userStopped = MutableStateFlow(false)
-    fun stopByUser() { userStopped.value = true; disconnect() }
+    /**
+     * 使用者自己按了「中斷連線」或通知上的「結束」：之後 [USER_STOP_HOLD_MS] 內回到 App 不自動連（例如停車後回來看健檢報告），
+     * 要連就手動按；過了這段時間（通常是下一次騎車）打開 App 又會自動連。存在設定裡，App 被系統關掉也一樣。
+     */
+    private fun userStoppedAt() = prefs.getString("userStoppedAt", null)?.toLongOrNull() ?: 0L
+    val userStopped = MutableStateFlow(WallClock.nowMs() - userStoppedAt() < USER_STOP_HOLD_MS)
+    fun stopByUser() {
+        prefs.putString("userStoppedAt", WallClock.nowMs().toString()); userStopped.value = true
+        disconnect()
+    }
+    /** App 畫面是否在前景（MainActivity onStart／onStop 設定）。 */
+    @kotlin.concurrent.Volatile var appVisible = false
     private var autoConnectAtMs = -1L
     /** 回到 App（或 App 剛開好）時呼叫：沒連線、使用者也沒自己停掉，就自動連上次的 ECU。 */
     fun autoConnectIfIdle() {
+        if (userStopped.value && WallClock.nowMs() - userStoppedAt() >= USER_STOP_HOLD_MS) userStopped.value = false
         if (!autoConnect || userStopped.value || target.value != null || registry.value == null || host.isBlank()) return
         val now = platform.elapsedNanos() / 1_000_000
         if (autoConnectAtMs >= 0 && now - autoConnectAtMs < 10_000) return // 剛送出的連線還在建立
@@ -588,17 +598,32 @@ class Repo(val platform: Platform) {
      */
     private suspend fun rideLoop(s: Session, t: Target) {
         var quietSince = -1L
-        val startedMs = platform.elapsedNanos() / 1_000_000
+        var lastDataMs = platform.elapsedNanos() / 1_000_000
         var everStreamed = false
+        var gpsPaused = false
         while (true) {
             kotlinx.coroutines.delay(1_000)
             if (session !== s) return
             if (t !is Target.Ecu) continue
             val now = platform.elapsedNanos() / 1_000_000
-            // 連上之後一直沒收到資料（例如在家打開 App、車子不在旁邊）：10 分鐘後自己停，不在背景一直重試耗電
-            if (state.value == SessionState.Streaming) everStreamed = true
-            if (!everStreamed && now - startedMs > NEVER_STREAMED_STOP_MS) {
-                log("No data from the ECU for ${NEVER_STREAMED_STOP_MS / 60_000} min since connecting, stopping")
+            if (state.value == SessionState.Streaming) {
+                everStreamed = true; lastDataMs = now
+                if (gpsPaused) { gpsPaused = false; if (gpsEnabled.value) gps.start() }
+            } else if (!gpsPaused && now - lastDataMs > GPS_PAUSE_MS) {
+                // 車子沒在送資料（熄火、離車）：先關 GPS，最耗電的是它；資料回來再開
+                gpsPaused = true; gps.stop()
+            }
+            val quietMs = now - lastDataMs
+            // 省電：一直沒收到資料（在家打開 App 後切走、車子不在旁邊），或停車後很久都沒資料，就自己停。
+            // 騎車中（還在錄、或資料有在來）不會觸發；App 畫面開著時也不停。之後回到 App 會自動再連。
+            val stopReason = when {
+                appVisible || recording.value != null -> null
+                !everStreamed && quietMs > NEVER_STREAMED_STOP_MS -> "No data from the ECU for ${quietMs / 60_000} min since connecting"
+                everStreamed && quietMs > PARKED_STOP_MS -> "Parked: no data for ${quietMs / 60_000} min"
+                else -> null
+            }
+            if (stopReason != null) {
+                log("$stopReason, stopping to save battery")
                 disconnect()
                 return
             }
@@ -615,16 +640,21 @@ class Repo(val platform: Platform) {
         }
     }
     private var rideJob: Job? = null
+    /** 最近一趟騎完後的健檢＋AI 工作。 */
+    @kotlin.concurrent.Volatile private var postRideJob: Job? = null
 
     // ---------------- 騎完自動健檢 ----------------
     /** 一趟騎乘的健檢結果（最新在前）。 */
     data class HealthEntry(val dir: Path, val report: EngineHealth.Report, val ai: String?)
     val healthHistory = MutableStateFlow<List<HealthEntry>>(emptyList())
 
+    /** 健檢清單讀完了沒（通知點進來要等讀完才知道最新一趟是哪個）。 */
+    val healthLoaded = MutableStateFlow(false)
     fun loadHealthHistory() = scope.launch(Dispatchers.Default) {
         healthHistory.value = Fs.list(sessionsRoot).filter { Fs.isDir(it) && Fs.exists(Path(it, HealthStore.FILE)) }
             .sortedByDescending { it.name.substringAfter('_') }
             .mapNotNull { d -> runCatching { HealthStore.decode(Fs.readText(Path(d, HealthStore.FILE)))?.let { HealthEntry(d, it, readAi(d)) } }.getOrNull() }
+        healthLoaded.value = true
     }
 
     private fun readAi(d: Path) = Path(d, AI_FILE).let { if (Fs.exists(it)) Fs.readText(it) else null }
@@ -673,7 +703,7 @@ class Repo(val platform: Platform) {
 
     fun connect(t: Target) {
         val reg = registry.value ?: return
-        userStopped.value = false
+        if (userStopped.value) { userStopped.value = false; prefs.putString("userStoppedAt", null) }
         scope.launch {
             disconnectInternal()
             val preset = currentPreset()
@@ -719,7 +749,12 @@ class Repo(val platform: Platform) {
         }
     }
 
-    fun disconnect() = scope.launch { disconnectInternal(); platform.onSessionActive(false) }
+    fun disconnect() = scope.launch {
+        disconnectInternal()
+        // 騎完的健檢／AI 還在跑：等它做完（最多 2 分鐘）才放掉前景服務，不然 App 在背景時可能被凍住做不完
+        postRideJob?.let { j -> kotlinx.coroutines.withTimeoutOrNull(120_000) { j.join() } }
+        platform.onSessionActive(false)
+    }
 
     /** 收不到資料（熄火、離車）超過 [idleStopMinutes] 分鐘就自己斷線，不在背景一直重連。 */
     private suspend fun autoStopWhenIdle(s: Session) {
@@ -824,7 +859,7 @@ class Repo(val platform: Platform) {
         liveMarks.value = emptyList()
         log("Recording stopped: ${rec.rounds} rounds, ${rec.frames} frames")
         val dir = rec.dir
-        if (!dir.name.startsWith("DEMO") && rec.rounds > 0) scope.launch {
+        if (!dir.name.startsWith("DEMO") && rec.rounds > 0) postRideJob = scope.launch {
             val r = runHealth(dir, notify = true)
             if (r != null && aiAuto.value && r.runningSec >= EngineHealth.MIN_RUNNING_SEC && aiKey(aiProvider.value) != null) aiExplain(dir)
         }
@@ -858,8 +893,14 @@ class Repo(val platform: Platform) {
         const val AUTO_RECORD_DEFAULT = true
         /** 熄火（或收不到資料）多久算一趟騎完。 */
         const val RIDE_END_MS = 5 * 60_000L
-        /** 連上後一直沒有資料，多久自己停。 */
-        const val NEVER_STREAMED_STOP_MS = 10 * 60_000L
+        /** 連上後一直沒有資料，多久自己停（App 在背景時）。 */
+        const val NEVER_STREAMED_STOP_MS = 30 * 60_000L
+        /** 騎完停車後沒有資料，多久自己停（App 在背景時）。 */
+        const val PARKED_STOP_MS = 60 * 60_000L
+        /** 沒資料多久先關 GPS。 */
+        const val GPS_PAUSE_MS = 60_000L
+        /** 使用者自己中斷後，多久內不自動連。 */
+        const val USER_STOP_HOLD_MS = 30 * 60_000L
         const val OPEN_MAP = "map"
         const val OPEN_HEALTH = "health"
         const val AI_FILE = "ai.txt"

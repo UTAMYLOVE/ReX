@@ -53,8 +53,8 @@ class RxService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
-            repo().stopByUser() // 使用者按「結束」：之後回到 App 也不自動連
-            stopSelf()
+            // 使用者按「結束」：一陣子內回到 App 也不自動連。服務等騎完的健檢／AI 做完才由 onSessionActive(false) 收掉
+            if (repo().session == null) stopSelf() else repo().stopByUser()
             return START_NOT_STICKY
         }
         // GPS 開著且有權限才加 location 類型（螢幕關掉也繼續定位）；沒權限就加會被系統拒
