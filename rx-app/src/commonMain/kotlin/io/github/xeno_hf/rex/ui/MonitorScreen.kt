@@ -67,6 +67,7 @@ fun MonitorScreen() {
     val state by repo.state.collectAsState()
     val style by repo.monStyle.collectAsState()
     val chosen by repo.monTiles.collectAsState()
+    val six by repo.monSix.collectAsState()
     val ride by repo.ride.collectAsState()
     val mapAlert by repo.mapAlert.collectAsState()
     val history by repo.healthHistory.collectAsState()
@@ -110,10 +111,13 @@ fun MonitorScreen() {
     val nudge = repo.platform.supportsOverlay && overlayOn && !overlayPermitted
     if (nudge) LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(1000); overlayPermitted = repo.platform.overlayPermitted() } }
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(pal.page)) {
+    if (style == MonStyle.D) BoxWithConstraints(Modifier.fillMaxSize().background(pal.page)) {
+        MonitorD(frame, live, ride, six, pal, night, mapAlert, rec != null, maxWidth > maxHeight,
+            onMap = { mapOpen = true }, onFault = { faultOpen = true }, onAck = { repo.ackMapAlert() }, onPick = { picking = it })
+    } else BoxWithConstraints(Modifier.fillMaxSize().background(pal.page)) {
         val land = maxWidth > maxHeight
         val mw = maxWidth.value
-        val dialH = when (style) { MonStyle.A -> A_H; MonStyle.B -> B_H; MonStyle.C -> C_H }
+        val dialH = when (style) { MonStyle.A -> A_H; MonStyle.B -> B_H; MonStyle.C, MonStyle.D -> C_H }
         val lowerDu = 2 * 104f + 8 + 10 + 44 + 8 + 30 + 8 + 24 + (if (mapAlert != null) 48f else 0f) + (if (nudge) 48f else 0f)
         // k：每個設計單位幾 dp
         val k = if (land) min((maxWidth.value * 0.48f) / 412f, maxHeight.value / dialH)
@@ -133,7 +137,7 @@ fun MonitorScreen() {
                         when (style) {
                             MonStyle.A -> dialCorsa(tm, d, night)
                             MonStyle.B -> dialPit(tm, d, night)
-                            MonStyle.C -> dialKoso(tm, d, night)
+                            MonStyle.C, MonStyle.D -> dialKoso(tm, d, night)
                         }
                     }
                 }
@@ -141,7 +145,7 @@ fun MonitorScreen() {
                 val (mx, my, mw, mh) = when (style) {
                     MonStyle.A -> listOf(168f, 346f, 76f, 36f)
                     MonStyle.B -> listOf(162f, 390f, 88f, 40f)
-                    MonStyle.C -> listOf(340f, 316f, 56f, 72f)
+                    MonStyle.C, MonStyle.D -> listOf(340f, 316f, 56f, 72f)
                 }
                 Box(Modifier.offset((mx * k).dp, (my * k).dp).size((mw * k).dp, (mh * k).dp).clickable { mapOpen = true })
             }
@@ -199,7 +203,8 @@ fun MonitorScreen() {
     }
 
     picking?.let { i ->
-        FieldPicker(stringResource(R.string.pick_field_title), chosen.getOrNull(i), onPick = { repo.setMonTile(i, it); picking = null }, onDismiss = { picking = null })
+        FieldPicker(stringResource(R.string.pick_field_title), (if (style == MonStyle.D) six else chosen).getOrNull(i),
+            onPick = { if (style == MonStyle.D) repo.setMonSix(i, it) else repo.setMonTile(i, it); picking = null }, onDismiss = { picking = null })
     }
     if (mapOpen) MapWindow { mapOpen = false }
     if (faultOpen) FaultWindow { faultOpen = false }
@@ -393,7 +398,7 @@ private fun DrawScope.rideRow(tm: TextMeasurer, recording: Boolean, ride: RideSt
 
 /** 「油圖被切換、不是從這支手機切的」提醒條（注意等級：玫瑰外框，不用紅色）。 */
 @Composable
-private fun MapAlertBar(ev: Repo.MapEvent, pal: PagePal, k: Float, onOpen: () -> Unit, onAck: () -> Unit) {
+internal fun MapAlertBar(ev: Repo.MapEvent, pal: PagePal, k: Float, onOpen: () -> Unit, onAck: () -> Unit) {
     val tm = rememberTextMeasurer()
     Box(Modifier.padding(start = (16 * k).dp, top = (8 * k).dp).size((380 * k).dp, (40 * k).dp).clickable(onClick = onOpen)) {
         Canvas(Modifier.fillMaxSize()) {

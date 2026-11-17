@@ -98,7 +98,7 @@ class Repo(val platform: Platform) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val prefs = platform.kv
     // 夜櫻：舊設定一次性調成固定值（要在下面各設定讀 prefs 之前跑）
-    init { Yozakura.migrate(prefs) }
+    init { Yozakura.migrate(prefs); Yozakura.migrate2(prefs) }
     val secrets get() = platform.secrets
 
     val registry = MutableStateFlow<ChannelRegistry?>(null)
@@ -247,6 +247,12 @@ class Repo(val platform: Platform) {
         val l = monTiles.value.toMutableList().also { it[index] = f }
         monTiles.value = l; prefs.putString(Yozakura.TILES_KEY, l.joinToString(",") { it.id })
     }
+    /** D 風格的六格。 */
+    val monSix = MutableStateFlow(MonField.parse(prefs.getString("monSix", null), MonField.DEFAULT_SIX).let { if (it.size == 6) it else MonField.DEFAULT_SIX })
+    fun setMonSix(index: Int, f: MonField) {
+        val l = monSix.value.toMutableList().also { it[index] = f }
+        monSix.value = l; prefs.putString("monSix", l.joinToString(",") { it.id })
+    }
     /** 懸浮小儀表側翼的三列。 */
     val overlayRows = MutableStateFlow(MonField.parse(prefs.getString("ovRows", null), MonField.DEFAULT_ROWS))
     fun setOverlayRow(index: Int, f: MonField) {
@@ -308,6 +314,32 @@ class Repo(val platform: Platform) {
     /** 每趟騎完自動請 AI 解讀（預設關，因為每次都會花 API 費用）。 */
     val aiAuto = MutableStateFlow(prefs.getBoolean("aiAuto", false))
     fun setAiAuto(v: Boolean) { aiAuto.value = v; prefs.putBoolean("aiAuto", v) }
+    /** 車輛資料（第一次開 App 會問；給 AI 和健檢參考）。空白＝沒填。 */
+    var vehModel: String get() = prefs.getString("veh.model", "")!!; set(v) = prefs.putString("veh.model", v.trim())
+    var vehCc: String get() = prefs.getString("veh.cc", "")!!; set(v) = prefs.putString("veh.cc", v.filter { it.isDigit() })
+    /** "water"／"air"／""。 */
+    var vehCooling: String get() = prefs.getString("veh.cooling", "")!!; set(v) = prefs.putString("veh.cooling", v)
+    /** "single"／"dual"／""。 */
+    var vehInjector: String get() = prefs.getString("veh.inj", "")!!; set(v) = prefs.putString("veh.inj", v)
+    /** "yes"／"no"／""。 */
+    var vehAf2: String get() = prefs.getString("veh.af2", "")!!; set(v) = prefs.putString("veh.af2", v)
+    var vehMods: String get() = prefs.getString("veh.mods", "")!!; set(v) = prefs.putString("veh.mods", v.trim())
+    /** "commute"／"fun"／"mixed"／""。 */
+    var vehUse: String get() = prefs.getString("veh.use", "")!!; set(v) = prefs.putString("veh.use", v)
+    /** 問過了（或選了「之後再說」）就不再主動跳出來。 */
+    var vehAsked: Boolean get() = prefs.getBoolean("veh.asked", false); set(v) = prefs.putBoolean("veh.asked", v)
+    /** 給 AI 的車輛描述：把上面各項整理成一段話，最後接自由說明。 */
+    fun vehicleProfileText(): String = buildString {
+        if (vehModel.isNotBlank()) appendLine("車款：$vehModel")
+        if (vehCc.isNotBlank()) appendLine("排氣量：${vehCc} cc")
+        when (vehCooling) { "water" -> appendLine("冷卻：水冷"); "air" -> appendLine("冷卻：氣冷（引擎溫度正常範圍比水冷高）") }
+        when (vehInjector) { "single" -> appendLine("噴油：單噴油嘴"); "dual" -> appendLine("噴油：雙噴油嘴（紀錄裡只有第一支噴嘴的噴油時間，看不到第二支）") }
+        when (vehAf2) { "yes" -> appendLine("有裝 AF2 寬頻空燃比感知器"); "no" -> appendLine("沒有裝 AF2 寬頻空燃比感知器（空燃比相關欄位是空的或 0，不是故障）") }
+        if (vehMods.isNotBlank()) appendLine("改裝：$vehMods")
+        when (vehUse) { "commute" -> appendLine("用途：通勤為主"); "fun" -> appendLine("用途：常拉高轉、跑山"); "mixed" -> appendLine("用途：通勤和休閒都有") }
+        if (vehicleNote.isNotBlank()) appendLine("車主補充：$vehicleNote")
+    }.trim()
+
     /** 車輛說明（給 AI 參考）：車款、氣冷／水冷、改裝。 */
     var vehicleNote: String
         get() = prefs.getString("vehicleNote", "")!!
@@ -690,7 +722,7 @@ class Repo(val platform: Platform) {
         val digest = withContext(Dispatchers.Default) {
             runCatching { rx.session.EngineDigest.build(Loga.parse(Fs.readBytes(Path(dir, "decoded.loga")))) }.getOrNull()
         }
-        val user = AiPrompt.user(report, vehicleNote, dir.name, ::findingString, ::metricString, digest)
+        val user = AiPrompt.user(report, vehicleProfileText(), dir.name, ::findingString, ::metricString, digest)
         val text = client.complete(p, key, aiModel(p), AiPrompt.SYSTEM, user).trim()
         require(text.isNotEmpty()) { Strings.get(R.string.ai_empty) }
         Fs.writeText(Path(dir, AI_FILE), text)

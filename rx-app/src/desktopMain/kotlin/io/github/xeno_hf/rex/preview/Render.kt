@@ -120,6 +120,13 @@ fun main(args: Array<String>) {
     shot("app_monitor_360", 360, 760, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
     shot("app_settings_360", 360, 760, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Settings") }
     shot("app_health_360", 360, 760, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Health") }
+    repo.setMonStyle(MonStyle.D)
+    shot("d_night", 412, 892, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
+    shot("d_rev", 412, 892, ThemeChoice.YOZAKURA, rev, revOn, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
+    shot("d_day", 412, 892, ThemeChoice.NIPPON, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
+    shot("d_alert", 412, 892, ThemeChoice.YOZAKURA, hot, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
+    shot("d_land", 816, 392, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { MonitorScreen() }
+    repo.setMonStyle(MonStyle.C)
     repo.openRequest.value = Repo.OPEN_MAP
     shot("app_map_window", 412, 892, ThemeChoice.YOZAKURA, cruise, steady, wait = 800) { YozakuraApp(repo, startTab = "Monitor") }
     repo.openRequest.value = null

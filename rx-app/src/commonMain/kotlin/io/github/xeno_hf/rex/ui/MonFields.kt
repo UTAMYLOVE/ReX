@@ -29,7 +29,12 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
     PW("pw", R.string.f_pw, "ms", 2),
     KML("kml", R.string.f_kml, "km/L", 1),
     TRIP("trip", R.string.f_trip, "km", 1),
-    MAX_RPM("maxrpm", R.string.f_maxrpm, "rpm", 0);
+    MAX_RPM("maxrpm", R.string.f_maxrpm, "rpm", 0),
+    NBO2("nbo2", R.string.f_nbo2, "mV", 0),
+    DUTY("duty", R.string.f_duty, "%", 0),
+    HP("hp", R.string.f_hp, "hp", 1),
+    TQ("tq", R.string.f_tq, "Nm", 1),
+    KML_NOW("kmlnow", R.string.f_kml_now, "km/L", 1);
 
     fun value(l: Live?, ride: RideStats): Double? = when (this) {
         TEMP -> l?.v(Ch.T_ENG)
@@ -45,6 +50,11 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
         KML -> l?.v(53)
         TRIP -> ride.km
         MAX_RPM -> ride.maxRpm.takeIf { it > 0 }
+        NBO2 -> l?.v(46)
+        DUTY -> l?.v(82)
+        HP -> l?.v(1420)
+        TQ -> l?.v(1427)
+        KML_NOW -> l?.v(52)
     }
 
     /** 顯示用字串（不含單位）。 */
@@ -85,8 +95,11 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
         fun parse(s: String?, def: List<MonField>): List<MonField> =
             s?.split(',')?.mapNotNull(::of)?.takeIf { it.isNotEmpty() } ?: def
 
-        val DEFAULT_TILES = listOf(TEMP, AFR, VOLT, TRIM)
-        val DEFAULT_ROWS = listOf(TEMP, VOLT, AFR)
+        // 預設不放空燃比：多數車沒裝 AF2，會一直顯示「—」
+        val DEFAULT_TILES = listOf(TEMP, VOLT, TPS, TRIM)
+        val DEFAULT_ROWS = listOf(TEMP, VOLT, IAT)
+        /** D 風格主畫面的六格。 */
+        val DEFAULT_SIX = listOf(TEMP, VOLT, TPS, SA, NBO2, TRIM)
 
         /**
          * 使用者選的欄位，加上「有警示就暫時頂替最後一格」：沒放在畫面上的監看項目（水溫、電壓、空燃比、燃油修正、故障碼）
@@ -105,7 +118,7 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
 
 /** 監控主畫面的三種風格。 */
 enum class MonStyle(val label: Int) {
-    A(R.string.style_a), B(R.string.style_b), C(R.string.style_c);
+    A(R.string.style_a), B(R.string.style_b), C(R.string.style_c), D(R.string.style_d);
 
     companion object { fun parse(s: String?) = entries.firstOrNull { it.name == s } ?: C }
 }

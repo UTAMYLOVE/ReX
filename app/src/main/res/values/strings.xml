@@ -395,4 +395,14 @@
     <string name="yz_rides">Rides (%d)</string>
     <string name="yz_recording_now">Recording this ride</string>
     <string name="yz_minutes">%d min</string>
+    <string name="f_nbo2">Stock O2 sensor</string>
+    <string name="f_duty">Injector duty</string>
+    <string name="f_hp">Est. power</string>
+    <string name="f_tq">Est. torque</string>
+    <string name="f_kml_now">Fuel economy now</string>
+    <string name="style_d">D Data</string>
+    <string name="yz_all_data">All data</string>
+    <string name="yz_grp_engine">Engine</string>
+    <string name="yz_grp_trip">Trip</string>
+    <string name="yz_all_ok">✓ All normal</string>
 </resources>

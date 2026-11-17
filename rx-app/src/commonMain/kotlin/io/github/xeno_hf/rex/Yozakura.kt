@@ -28,4 +28,18 @@ object Yozakura {
         kv.putString("bind", BindMode.AUTO.name)
         kv.putBoolean(MIGRATED_KEY, true)
     }
+
+    /** 第二次調整：沒裝 AF2 的車，空燃比那格一直是「—」，換成別的。 */
+    fun migrate2(kv: KeyValueStore) {
+        if (kv.getBoolean("yozakura.v2", false)) return
+        fun swap(key: String, with: String) {
+            val v = kv.getString(key, null) ?: return
+            val ids = v.split(',').toMutableList()
+            val i = ids.indexOf("afr"); if (i < 0) return
+            ids[i] = if (with in ids) "tps" else with
+            kv.putString(key, ids.joinToString(","))
+        }
+        swap(TILES_KEY, "tps"); swap("ovRows", "iat")
+        kv.putBoolean("yozakura.v2", true)
+    }
 }

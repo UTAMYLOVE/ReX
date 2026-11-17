@@ -379,4 +379,14 @@
     <string name="yz_rides">走行記録（%d）</string>
     <string name="yz_recording_now">この走行を記録中</string>
     <string name="yz_minutes">%d 分</string>
+    <string name="f_nbo2">純正 O2 電圧</string>
+    <string name="f_duty">インジェクター開度</string>
+    <string name="f_hp">推定馬力</string>
+    <string name="f_tq">推定トルク</string>
+    <string name="f_kml_now">瞬間燃費</string>
+    <string name="style_d">D データ</string>
+    <string name="yz_all_data">全データ</string>
+    <string name="yz_grp_engine">エンジン</string>
+    <string name="yz_grp_trip">走行</string>
+    <string name="yz_all_ok">✓ 異常なし</string>
 </resources>

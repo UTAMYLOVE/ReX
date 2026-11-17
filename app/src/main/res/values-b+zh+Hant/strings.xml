@@ -379,4 +379,14 @@
     <string name="yz_rides">騎乘紀錄（%d）</string>
     <string name="yz_recording_now">這趟正在錄製</string>
     <string name="yz_minutes">%d 分鐘</string>
+    <string name="f_nbo2">原廠含氧電壓</string>
+    <string name="f_duty">噴油嘴開度</string>
+    <string name="f_hp">估計馬力</string>
+    <string name="f_tq">估計扭力</string>
+    <string name="f_kml_now">瞬時油耗</string>
+    <string name="style_d">D 資料錶</string>
+    <string name="yz_all_data">全部數據</string>
+    <string name="yz_grp_engine">引擎</string>
+    <string name="yz_grp_trip">行程</string>
+    <string name="yz_all_ok">✓ 一切正常</string>
 </resources>
