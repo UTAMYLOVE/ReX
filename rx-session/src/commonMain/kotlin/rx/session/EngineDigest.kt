@@ -30,8 +30,6 @@ object EngineDigest {
         Ch("Fuel_CL", "燃油修正（閉迴路）", "%", 1, -50.0, 50.0),
         Ch("Acc_Fuel_Mult", "加速增量倍數", "", 2, 0.0, 20.0),
         Ch("Cyl1_Final_VM", "最終容積效率係數", "", 2, 0.0, 5.0),
-        Ch("ISC_Air_Flow", "怠速進氣量", "%", 0, 0.0, 100.0),
-        Ch("Idle_Desir_RPM", "目標怠速", "rpm", 0, 300.0, 5000.0),
         Ch("Horsepower", "估計馬力", "hp", 1, 0.0, 300.0),
         Ch("Torque", "估計扭力", "Nm", 1, 0.0, 500.0),
         Ch("Avg_Fuel_Consump", "平均油耗", "km/L", 1, 0.5, 150.0),
@@ -92,13 +90,15 @@ object EngineDigest {
                 val idx = (0 until n).filter { reg[it] == r }
                 val sec = idx.sumOf { dt[it] }
                 if (sec < 1.0) { sb.appendLine("- ${names[r]}：0%"); continue }
+                // 時間太短（<3% 或 <20 秒）：樣本少，平均值不可靠
+                val thin = sec / runSec < 0.03 || sec < 20.0
                 val parts = REGION_COLS.mapNotNull { name ->
                     val c = chs[name] ?: return@mapNotNull null
                     val a = cols[name] ?: return@mapNotNull null
                     val xs = idx.filter { ok(c, a[it]) }.map { a[it] }
                     if (xs.size < 5) null else "${c.label} ${f(xs.average(), c.dec)}${c.unit.let { u -> if (u.isEmpty()) "" else " $u" }}"
                 }
-                sb.appendLine("- ${names[r]}：${pct(sec)}；${parts.joinToString("，")}")
+                sb.appendLine("- ${names[r]}：${pct(sec)}（${f(sec, 0)} 秒）${if (thin) "【樣本太少，僅供參考】" else ""}；${parts.joinToString("，")}")
             }
         }
 
@@ -139,7 +139,11 @@ object EngineDigest {
                 val mean = r.average()
                 val sd = kotlin.math.sqrt(r.sumOf { (it - mean) * (it - mean) } / r.size)
                 val want = idleDesired?.let { d -> idle.map { d[it] }.filter { it in 300.0..5000.0 }.takeIf { it.isNotEmpty() }?.average() }
-                sb.appendLine("怠速：平均 ${f(mean, 0)} rpm，波動（標準差）${f(sd, 0)} rpm，最低 ${f(r.min(), 0)}" + (want?.let { "，目標 ${f(it, 0)}" } ?: ""))
+                // 怠速時（只算怠速的時候）的 ISC 怠速進氣控制量；這個數值的確切定義依 ECU 而定，只當相對參考
+                val isc = col("ISC_Air_Flow")?.let { a -> idle.map { a[it] }.filter { it in 0.0..100.0 }.takeIf { it.size >= 20 } }
+                sb.appendLine("怠速（只算怠速時）：平均 ${f(mean, 0)} rpm，波動（標準差）${f(sd, 0)} rpm，最低 ${f(r.min(), 0)}" +
+                    (want?.let { "，ECU 目標 ${f(it, 0)}" } ?: "") +
+                    (isc?.let { "；ISC 怠速進氣控制量 平均 ${f(it.average(), 0)}%、最高 ${f(it.max(), 0)}%（ECU 內部控制量，定義依韌體而定，只當相對參考）" } ?: ""))
             }
         }
 

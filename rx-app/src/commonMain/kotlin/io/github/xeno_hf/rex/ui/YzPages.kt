@@ -238,7 +238,7 @@ fun YzHealthTab() {
                     Row(Modifier.padding(top = 10.dp)) {
                         Text("AI", color = Yz.ink, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.background(Yz.rose).padding(horizontal = 4.dp, vertical = 1.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text(ai.replace('\n', ' '), fontSize = 13.sp, color = RxColors.text, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
+                        Text(aiPlain(ai).replace('\n', ' '), fontSize = 13.sp, color = RxColors.text, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp)
                     }
                 }
                 if (!live) Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

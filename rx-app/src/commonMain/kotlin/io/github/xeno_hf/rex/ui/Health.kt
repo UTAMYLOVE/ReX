@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.github.xeno_hf.rex.Fs
@@ -109,11 +110,29 @@ private fun AiPanel(dir: kotlinx.io.files.Path) {
                 scope.launch { repo.aiExplain(dir).onFailure { err = it.message ?: it.toString() }; busy = false }
             }) { Text(stringResource(if (busy) R.string.ai_busy else if (saved == null) R.string.ai_run else R.string.ai_rerun)) }
         }
-        saved?.let { Text(it, fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 6.dp)) }
+        saved?.let { Text(aiRich(it), fontSize = 14.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 6.dp)) }
         err?.let { Text(it, color = RxColors.danger, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
         Text(stringResource(R.string.ai_privacy), color = RxColors.muted, fontSize = 11.sp, modifier = Modifier.padding(top = 6.dp))
     }
 }
+
+/**
+ * AI 回覆有時會帶 Markdown（**粗體**、# 標題）：轉成真的粗體，符號不顯示。
+ */
+internal fun aiRich(text: String): androidx.compose.ui.text.AnnotatedString = androidx.compose.ui.text.buildAnnotatedString {
+    text.lines().forEachIndexed { i, raw ->
+        if (i > 0) append('\n')
+        val heading = Regex("^#{1,6}\\s+").find(raw)
+        val line = if (heading != null) raw.substring(heading.range.last + 1) else raw
+        val bold = androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)
+        if (heading != null) { withStyle(bold) { append(line.replace("**", "")) }; return@forEachIndexed }
+        val parts = line.split("**")
+        parts.forEachIndexed { k, p -> if (k % 2 == 1 && k < parts.lastIndex + (if (parts.size % 2 == 1) 1 else 0)) withStyle(bold) { append(p) } else append(p) }
+    }
+}
+
+/** AI 回覆的純文字版（卡片摘要用）：拿掉 Markdown 符號。 */
+internal fun aiPlain(text: String): String = text.replace("**", "").replace(Regex("(?m)^#{1,6}\\s+"), "")
 
 /** 健檢趨勢：最近 8 趟的分數，一趟一根分段柱（像液晶條）；80 分以下用玫瑰色板標出來。點柱子看那一趟的報告。 */
 @Composable
