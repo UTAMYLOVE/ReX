@@ -66,6 +66,23 @@ data class PagePal(
     fun of(lv: Lv) = when (lv) { Lv.OK -> num; Lv.CAUTION -> caution; Lv.FAULT -> fault }
 }
 
+/**
+ * 錶面配色（日夜）。白天：白色錶面、深色刻度與數字、深玫瑰指針、紅色針尖；外殼與 LED 槽日夜都是深色。
+ * 每個錶盤函式開頭設定 [day]（繪製都在主執行緒依序進行）。懸浮小儀表一律用夜間配色（疊在地圖上要深色）。
+ */
+private object Tone {
+    var day = false
+    val major get() = if (day) Color(0xFF1F0E16) else Inst.sakura
+    val mid get() = if (day) Color(0xFF4A2E38) else Inst.beige.copy(alpha = .7f)
+    val minor get() = if (day) Color(0xFF8C6672) else Inst.mocha
+    val numeral get() = if (day) Color(0xFF1F0E16) else Inst.beige
+    val readout get() = if (day) Color(0xFF1F0E16) else Inst.sakura
+    val sub get() = if (day) Inst.labelDay else Inst.beige
+    val needle get() = if (day) Inst.roseLine else Inst.rose
+    val tip get() = if (day) Inst.red else Color.White
+    val ring get() = if (day) Color(0xFF8C6672).copy(alpha = .35f) else Inst.beige.copy(alpha = .25f)
+}
+
 /** 轉速 → 29 段分段刻度（0–5k 每段 1,000；5–10k 每段 250；10–12k 每段 500），起點 135°，270°。 */
 object RevScale {
     fun idx(r: Double): Double { val x = r.coerceIn(0.0, 12_000.0); return if (x <= 5000) x / 1000 else if (x <= 10_000) 5 + (x - 5000) / 250 else 25 + (x - 10_000) / 500 }
@@ -195,25 +212,31 @@ fun DrawScope.ledRing(
 
 // ---------------------------------------------------------------- 錶盤共用
 
-private fun DrawScope.ticks(cx: Float, cy: Float, rFace: Float, redline: Int, majorColor: Color = Inst.sakura) {
+private fun DrawScope.ticks(cx: Float, cy: Float, rFace: Float, redline: Int, majorColor: Color = Tone.major) {
     fun tick(r: Double, rin: Float, w: Float, c: Color) {
         val a = RevScale.ang(r)
         drawLine(c, pt(cx, cy, rin, a), pt(cx, cy, rFace, a), strokeWidth = w)
     }
-    for (k in listOf(1000, 2000, 3000, 4000)) tick(k.toDouble(), rFace - 10, 1.5f, Inst.mocha)
-    var k = 5500; while (k <= 11500) { tick(k.toDouble(), rFace - 10, 1.5f, Inst.beige.copy(alpha = .7f)); k += 1000 }
-    for (q in listOf(8250, 8750, 9250, 9750)) tick(q.toDouble(), rFace - 6, 1f, Inst.mocha)
+    for (k in listOf(1000, 2000, 3000, 4000)) tick(k.toDouble(), rFace - 10, 1.5f, Tone.minor)
+    var k = 5500; while (k <= 11500) { tick(k.toDouble(), rFace - 10, 1.5f, Tone.mid); k += 1000 }
+    for (q in listOf(8250, 8750, 9250, 9750)) tick(q.toDouble(), rFace - 6, 1f, Tone.minor)
     for (q in listOf(0, 5000, 6000, 7000, 8000, 9000, 10000, 11000, 12000)) tick(q.toDouble(), rFace - 18, 3f, if (q >= redline) Inst.red else majorColor)
 }
 
 private fun DrawScope.numerals(tm: TextMeasurer, cx: Float, cy: Float, r: Float, redline: Int, size: Float = 20f) {
     for (k in listOf(0, 5, 6, 7, 8, 9, 10, 11, 12)) {
         val p = pt(cx, cy, r, RevScale.ang(k * 1000.0))
-        txt(tm, "$k", p.x, p.y + size * 0.345f, size, if (k * 1000 >= redline) Inst.red else Inst.beige, FontWeight.SemiBold, digits = true, anchor = 'c')
+        txt(tm, "$k", p.x, p.y + size * 0.345f, size, if (k * 1000 >= redline) Inst.red else Tone.numeral, if (Tone.day) FontWeight.Bold else FontWeight.SemiBold, digits = true, anchor = 'c')
     }
 }
 
 private fun DrawScope.face(cx: Float, cy: Float, r: Float) {
+    if (Tone.day) {
+        // 白天：白色錶面（大太陽下最清楚），邊緣一點點粉
+        drawCircle(Brush.radialGradient(listOf(Color.White, Color(0xFFFBEFF2)), center = Offset(cx, cy - r * .3f), radius = r * 1.2f), r, Offset(cx, cy))
+        for (i in 0 until 4) drawCircle(Color(0xFF3A1B2C).copy(alpha = .06f), r - i * 1.6f, Offset(cx, cy), style = Stroke(1.8f))
+        return
+    }
     drawCircle(Brush.radialGradient(listOf(Inst.surf2, Inst.bg), center = Offset(cx, cy - r * .3f), radius = r * 1.34f), r, Offset(cx, cy))
     // 內陰影
     for (i in 0 until 6) drawCircle(Color.Black.copy(alpha = .09f), r - i * 1.6f, Offset(cx, cy), style = Stroke(1.8f))
@@ -226,7 +249,7 @@ private fun DrawScope.chapterRing(cx: Float, cy: Float, r: Float) {
     for (k in 0 until steps) {
         val a1 = k * 360f / steps; val mid = a1 + 2.5f
         val t = (0.5 + 0.5 * cos(2 * (mid - 225) * PI / 180)).toFloat()
-        val c = lerpColor(Inst.mocha, Inst.beige, t)
+        val c = if (Tone.day) lerpColor(Color(0xFFE6B3C0), Inst.roseLine, t) else lerpColor(Inst.mocha, Inst.beige, t)
         drawArc(c, a1, 360f / steps + .3f, false, Offset(cx - r, cy - r), Size(2 * r, 2 * r), style = Stroke(1.5f))
     }
 }
@@ -240,6 +263,7 @@ private fun DrawScope.bezel(cx: Float, cy: Float, r: Float) {
 }
 
 private fun DrawScope.glass(cx: Float, cy: Float) {
+    if (Tone.day) return
     val p = Path()
     for (i in 0..50) { val a = 200f + i * 2; val q = pt(cx, cy, 159.5f, a); if (i == 0) p.moveTo(q.x, q.y) else p.lineTo(q.x, q.y) }
     for (i in 50 downTo 0) { val a = 200f + i * 2; val t = sin((a - 200) / 100 * PI).toFloat(); val q = pt(cx, cy, 159.5f - 12.5f * t, a); p.lineTo(q.x, q.y) }
@@ -258,13 +282,13 @@ private fun DrawScope.needle(cx: Float, cy: Float, ang: Float, glowOn: Boolean, 
     rotate(ang, Offset(cx, cy)) {
         val body = Path().apply { moveTo(cx + root, cy - 2f); lineTo(cx + len, cy - .75f); lineTo(cx + len, cy + .75f); lineTo(cx + root, cy + 2f); close() }
         if (glowOn) glow(Path().apply { moveTo(cx + len * .7f, cy - 1.2f); lineTo(cx + len, cy - .75f); lineTo(cx + len, cy + .75f); lineTo(cx + len * .7f, cy + 1.2f); close() }, Inst.rose, 2f, .25f)
-        drawPath(body, Inst.rose)
-        drawPath(Path().apply { moveTo(cx + len - 20, cy - 1.1f); lineTo(cx + len, cy - .75f); lineTo(cx + len, cy + .75f); lineTo(cx + len - 20, cy + 1.1f); close() }, Color.White)
-        if (hub) drawPath(Path().apply { moveTo(cx, cy - 2.6f); lineTo(cx - 13, cy - 4); lineTo(cx - 26, cy - 4); lineTo(cx - 26, cy + 4); lineTo(cx - 13, cy + 4); lineTo(cx, cy + 2.6f); close() }, Inst.rose)
+        drawPath(body, Tone.needle)
+        drawPath(Path().apply { moveTo(cx + len - 20, cy - 1.1f); lineTo(cx + len, cy - .75f); lineTo(cx + len, cy + .75f); lineTo(cx + len - 20, cy + 1.1f); close() }, Tone.tip)
+        if (hub) drawPath(Path().apply { moveTo(cx, cy - 2.6f); lineTo(cx - 13, cy - 4); lineTo(cx - 26, cy - 4); lineTo(cx - 26, cy + 4); lineTo(cx - 13, cy + 4); lineTo(cx, cy + 2.6f); close() }, Tone.needle)
     }
     if (hub) {
         drawCircle(Brush.radialGradient(listOf(Color(0xFF42283A), Color(0xFF13090E)), center = Offset(cx - 5, cy - 6), radius = 17f), 17f, Offset(cx, cy))
-        drawCircle(Inst.rose, 15.5f, Offset(cx, cy), style = Stroke(3f))
+        drawCircle(Tone.needle, 15.5f, Offset(cx, cy), style = Stroke(3f))
         drawCircle(Color.Black.copy(alpha = .5f), 13.5f, Offset(cx, cy), style = Stroke(1f))
         drawCircle(Inst.sakura, 4f, Offset(cx, cy))
     }
@@ -279,6 +303,7 @@ fun mapFill(m: Int?) = Inst.rose
 const val C_H = 394f
 
 fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean) {
+    Tone.day = !night
     val cx = 206f; val cy = 196f
     val glowOn = night
     // 外殼：圓 r189 ∪ 下巴（x92–320，平底 y388，右下 14 切角）
@@ -286,7 +311,7 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean) {
         addArcPath(this, cx, cy, 189f, 52.9f, 127.1f)
         lineTo(92f, 388f); lineTo(306f, 388f); lineTo(320f, 374f); close()
     }
-    drawPath(pod, Brush.verticalGradient(listOf(Color(0xFF21171A), Color(0xFF1A1113)), startY = 7f, endY = 388f))
+    drawPath(pod, Brush.verticalGradient(listOf(Color(0xFF3A1B2C), Inst.bg), startY = 7f, endY = 388f))
     drawPath(sectorPath(cx, cy, 164f, 184f, 132.6f, 407.4f), Inst.channel)
     drawPath(pod, Brush.verticalGradient(listOf(Inst.rimTop, Inst.rimBottom), startY = 7f, endY = 388f), style = Stroke(3f))
     drawArc(Inst.sakura.copy(alpha = .18f), 180f, 180f, false, Offset(cx - 188.5f, cy - 188.5f), Size(377f, 377f), style = Stroke(1f))
@@ -302,12 +327,12 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean) {
     drawLine(Brush.horizontalGradient(listOf(Inst.beige, Inst.mocha, Inst.beige), startX = 95f, endX = 317f), Offset(95.1f, 313f), Offset(316.9f, 313f), 1.5f)
     clipPath(faceClip) {
         face(cx, cy, 160f)
-        drawCircle(Inst.beige.copy(alpha = .25f), 96f, Offset(cx, cy), style = Stroke(1f))
+        drawCircle(Tone.ring, 96f, Offset(cx, cy), style = Stroke(1f))
         ticks(cx, cy, 160f, d.redline)
         numerals(tm, cx, cy, 122f, d.redline)
         if (d.connected) {
-            txt(tm, rpmText(d.rpm), cx, 256f, 28f, Inst.sakura, FontWeight.ExtraBold, digits = true, anchor = 'c')
-            txt(tm, "RPM", cx, 274f, 13f, Inst.beige, anchor = 'c', spacing = .08f)
+            txt(tm, rpmText(d.rpm), cx, 256f, 28f, Tone.readout, FontWeight.ExtraBold, digits = true, anchor = 'c')
+            txt(tm, "RPM", cx, 274f, 13f, Tone.sub, anchor = 'c', spacing = .08f)
         }
         needle(cx, cy, RevScale.ang(if (d.connected) d.needleRpm else 0.0), glowOn)
         glass(cx, cy)
@@ -315,14 +340,26 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean) {
     // 下巴：速度
     val spd = d.speed?.toString() ?: "--"
     val w = textWidth(tm, spd, 88f, FontWeight.ExtraBold, digits = true)
-    txt(tm, spd, 246f - w, 380f, 88f, Inst.sakura, FontWeight.ExtraBold, digits = true, skew = true, spacing = -.02f)
-    txt(tm, "km/h", 252f, 380f, 13f, Inst.beige, spacing = .06f)
-    // MAP 框（Ducati 檔位位置）
+    // 白天：車速放在白色液晶窗裡
+    if (Tone.day) {
+        drawPath(chamPath(108f, 320f, 198f, 62f, 8f), Color.White)
+        drawPath(chamPath(108.5f, 320.5f, 197f, 61f, 7.8f), Color(0xFF1F0E16).copy(alpha = .18f), style = Stroke(1f))
+    }
+    txt(tm, spd, 246f - w, 380f, 88f, Tone.readout, FontWeight.ExtraBold, digits = true, skew = true, spacing = -.02f)
+    txt(tm, "km/h", 252f, 380f, 13f, Tone.sub, spacing = .06f)
+    // MAP 框（Ducati 檔位位置）。白天：白板＋深色框＋深玫瑰硬陰影
     val x = 340f; val y = 332f
-    drawPath(chamPath(x, y, 56f, 56f, 10f), Inst.bg)
-    drawPath(chamPath(x + .75f, y + .75f, 54.5f, 54.5f, 9.7f), Inst.rose, style = Stroke(1.5f))
-    drawPath(chamPath(x + 3.5f, y + 3.5f, 49f, 49f, 8.5f), mapFill(d.map))
-    txt(tm, d.map?.toString() ?: "–", x + 28f, 380f, 60f, Inst.bg, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
+    if (Tone.day) {
+        drawPath(chamPath(x + 4f, y + 4f, 56f, 56f, 10f), Inst.roseLine)
+        drawPath(chamPath(x, y, 56f, 56f, 10f), Color.White)
+        drawPath(chamPath(x + .75f, y + .75f, 54.5f, 54.5f, 9.7f), Color(0xFF1F0E16), style = Stroke(1.5f))
+        txt(tm, d.map?.toString() ?: "–", x + 28f, 380f, 60f, Color(0xFF1F0E16), FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
+    } else {
+        drawPath(chamPath(x, y, 56f, 56f, 10f), Inst.bg)
+        drawPath(chamPath(x + .75f, y + .75f, 54.5f, 54.5f, 9.7f), Inst.rose, style = Stroke(1.5f))
+        drawPath(chamPath(x + 3.5f, y + 3.5f, 49f, 49f, 8.5f), mapFill(d.map))
+        txt(tm, d.map?.toString() ?: "–", x + 28f, 380f, 60f, Inst.bg, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
+    }
     txt(tm, "MAP", 396f, 326f, 13f, if (night) Inst.beige else Inst.labelDay, anchor = 'r', spacing = .08f)
 }
 
@@ -339,25 +376,26 @@ private fun addArcPath(p: Path, cx: Float, cy: Float, r: Float, a1: Float, a2: F
 const val A_H = 392f
 
 fun DrawScope.dialCorsa(tm: TextMeasurer, d: DialData, night: Boolean) {
+    Tone.day = !night
     val cx = 206f; val cy = 196f
     bezel(cx, cy, 188f)
     drawPath(sectorPath(cx, cy, 164f, 186f, 132.6f, 407.4f), Inst.channel)
     ledRing(d, cx, cy, 170f, 182f, night, revColor = Inst.sakura, cap = true)
     chapterRing(cx, cy, 161.75f)
     face(cx, cy, 160f)
-    drawCircle(Inst.beige.copy(alpha = .25f), 96f, Offset(cx, cy), style = Stroke(1f))
+    drawCircle(Tone.ring, 96f, Offset(cx, cy), style = Stroke(1f))
     ticks(cx, cy, 160f, d.redline)
     numerals(tm, cx, cy, 122f, d.redline)
     glass(cx, cy)
     val spd = d.speed?.toString() ?: "--"
-    txt(tm, spd, cx, 222f, 88f, Inst.sakura, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c', spacing = -.02f)
-    txt(tm, "km/h", cx, 246f, 13f, Inst.beige, anchor = 'c', spacing = .06f)
+    txt(tm, spd, cx, 222f, 88f, Tone.readout, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c', spacing = -.02f)
+    txt(tm, "km/h", cx, 246f, 13f, Tone.sub, anchor = 'c', spacing = .06f)
     if (d.connected) {
         val w1 = textWidth(tm, rpmText(d.rpm), 28f, FontWeight.ExtraBold, digits = true)
         val w2 = textWidth(tm, "RPM", 13f)
         val x0 = cx - (w1 + 6 + w2) / 2
-        txt(tm, rpmText(d.rpm), x0, 284f, 28f, Inst.sakura, FontWeight.ExtraBold, digits = true)
-        txt(tm, "RPM", x0 + w1 + 6, 284f, 13f, Inst.beige, spacing = .08f)
+        txt(tm, rpmText(d.rpm), x0, 284f, 28f, Tone.readout, FontWeight.ExtraBold, digits = true)
+        txt(tm, "RPM", x0 + w1 + 6, 284f, 13f, Tone.sub, spacing = .08f)
     }
     // 拉長六角 MAP 徽章（全 App 唯一的六角形）
     val bw = 76f; val bh = 36f; val bp = 12f; val bx = cx - bw / 2; val by = 364f - bh / 2
@@ -376,6 +414,7 @@ fun DrawScope.dialCorsa(tm: TextMeasurer, d: DialData, night: Boolean) {
 const val B_H = 430f
 
 fun DrawScope.dialPit(tm: TextMeasurer, d: DialData, night: Boolean) {
+    Tone.day = !night
     // 換檔燈：兩半各 5 段，由外往內兩兩點亮
     val segL = floatArrayOf(38f, 68f, 98f, 128f, 158f); val segR = floatArrayOf(348f, 318f, 288f, 258f, 228f)
     val R = d.redline
@@ -405,34 +444,35 @@ fun DrawScope.dialPit(tm: TextMeasurer, d: DialData, night: Boolean) {
         for (x in floatArrayOf(segL[i], segR[i])) {
             val cxn = x + 13
             if (passed) drawPath(paraPath(cxn - 9, 22f, 18f, 14f), if (nums[i] * 1000 >= R) Inst.red else Inst.sakura)
-            txt(tm, "${nums[i]}", cxn, 34f, 12f, if (passed) Inst.bg else Inst.beige, FontWeight.Bold, digits = true, anchor = 'c')
+            txt(tm, "${nums[i]}", cxn, 34f, 12f, if (passed) Inst.bg else Tone.sub, FontWeight.Bold, digits = true, anchor = 'c')
         }
     }
     // 錶盤
     val cx = 206f; val cy = 228f
     bezel(cx, cy, 166f)
     face(cx, cy, 160f)
-    drawCircle(Inst.beige.copy(alpha = .25f), 96f, Offset(cx, cy), style = Stroke(1f))
+    drawCircle(Tone.ring, 96f, Offset(cx, cy), style = Stroke(1f))
     ticks(cx, cy, 160f, d.redline)
+    // 外圈數字畫在外殼外面（頁面底色上），跟著日夜換色
     numerals(tm, cx, cy, 178f, d.redline, 22f)
     glass(cx, cy)
     val spd = d.speed?.toString() ?: "--"
-    txt(tm, spd, cx, 254f, 88f, Inst.sakura, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c', spacing = -.02f)
-    txt(tm, "km/h", cx, 278f, 13f, Inst.beige, anchor = 'c', spacing = .06f)
+    txt(tm, spd, cx, 254f, 88f, Tone.readout, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c', spacing = -.02f)
+    txt(tm, "km/h", cx, 278f, 13f, Tone.sub, anchor = 'c', spacing = .06f)
     if (d.connected) {
         val w1 = textWidth(tm, rpmText(d.rpm), 28f, FontWeight.ExtraBold, digits = true)
         val x0 = cx - (w1 + 6 + textWidth(tm, "rpm", 13f)) / 2
-        txt(tm, rpmText(d.rpm), x0, 316f, 28f, Inst.sakura, FontWeight.ExtraBold, digits = true)
-        txt(tm, "rpm", x0 + w1 + 6, 316f, 13f, Inst.beige)
+        txt(tm, rpmText(d.rpm), x0, 316f, 28f, Tone.readout, FontWeight.ExtraBold, digits = true)
+        txt(tm, "rpm", x0 + w1 + 6, 316f, 13f, Tone.sub)
     }
     // 浮動短針：r100–157，不壓到中間的數字
     needle(cx, cy, RevScale.ang(if (d.connected) d.needleRpm else 0.0), false, hub = false, root = 100f)
     // MAP：平行四邊形徽章，放在錶底缺口
     val bx = 206f - 44; val by = 390f
-    drawPath(paraPath(bx, by, 88f, 40f), Inst.bg)
-    drawPath(paraPath(bx, by, 88f, 40f), Inst.rose, style = Stroke(1.5f))
+    drawPath(paraPath(bx, by, 88f, 40f), if (Tone.day) Color.White else Inst.bg)
+    drawPath(paraPath(bx, by, 88f, 40f), if (Tone.day) Color(0xFF1F0E16) else Inst.rose, style = Stroke(1.5f))
     drawPath(paraPath(bx + 50, by + 5, 32f, 30f), mapFill(d.map))
-    txt(tm, "MAP", bx + 14, by + 26, 13f, Inst.beige, spacing = .08f)
+    txt(tm, "MAP", bx + 14, by + 26, 13f, Tone.sub, spacing = .08f)
     txt(tm, d.map?.toString() ?: "–", bx + 66, by + 32, 28f, Inst.bg, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
 }
 
@@ -445,6 +485,7 @@ const val WING_H = 128f
 
 /** 側翼式懸浮小儀表：左側三列資料翼＋右側 Ø128 圓錶（轉速環、轉速數字、車速、MAP）。 */
 fun DrawScope.wingGauge(tm: TextMeasurer, d: DialData, rows: List<WingRow>) {
+    Tone.day = false
     val worst = rows.maxOfOrNull { it.lv.ordinal }?.let { Lv.entries[it] } ?: Lv.OK
     val edge = when (worst) { Lv.FAULT -> Inst.red; Lv.CAUTION -> Inst.rose; Lv.OK -> Inst.mocha.copy(alpha = .45f) }
     val X = 0f; val Y = 6f; val W = 120f; val H = 116f
@@ -468,6 +509,7 @@ fun DrawScope.wingGauge(tm: TextMeasurer, d: DialData, rows: List<WingRow>) {
 
 /** Ø128 小圓錶本體（座標原點在圓的外接方框左上角）。 */
 fun DrawScope.miniDial(tm: TextMeasurer, d: DialData, fault: Boolean) {
+    Tone.day = false
     val cx = 64f; val cy = 64f
     drawCircle(Brush.verticalGradient(listOf(Inst.rimTop, Inst.rimBottom)), 64f, Offset(cx, cy))
     drawCircle(Brush.radialGradient(listOf(Inst.surf2, Inst.bg), center = Offset(64f, 48f), radius = 76f), 62f, Offset(cx, cy))

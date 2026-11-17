@@ -15,8 +15,8 @@ android {
         applicationId = "io.github.utamylove.rex"
         minSdk = 29
         targetSdk = 35
-        versionCode = 23
-        versionName = "0.7.0-yozakura.3"
+        versionCode = 24
+        versionName = "0.7.0-yozakura.4"
     }
 
     // 正式簽章：只從本機 ~/.config/rx/release.properties 讀，不入庫；沒有就用 debug 簽
