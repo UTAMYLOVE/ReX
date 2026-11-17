@@ -686,7 +686,11 @@ class Repo(val platform: Platform) {
         val key = aiKey(p) ?: error(Strings.get(R.string.ai_no_key, p.label))
         val entry = healthHistory.value.firstOrNull { it.dir == dir }
         val report = entry?.report ?: runHealth(dir, notify = false) ?: error(Strings.get(R.string.health_error, "no data"))
-        val user = AiPrompt.user(report, vehicleNote, dir.name, ::findingString, ::metricString)
+        // 引擎數據詳細摘要：從原始紀錄重新整理（不含車速、GPS）；解析大檔要在背景執行緒
+        val digest = withContext(Dispatchers.Default) {
+            runCatching { rx.session.EngineDigest.build(Loga.parse(Fs.readBytes(Path(dir, "decoded.loga")))) }.getOrNull()
+        }
+        val user = AiPrompt.user(report, vehicleNote, dir.name, ::findingString, ::metricString, digest)
         val text = client.complete(p, key, aiModel(p), AiPrompt.SYSTEM, user).trim()
         require(text.isNotEmpty()) { Strings.get(R.string.ai_empty) }
         Fs.writeText(Path(dir, AI_FILE), text)

@@ -281,7 +281,7 @@
     <string name="ai_busy">Asking…</string>
     <string name="ai_empty">The AI returned no text.</string>
     <string name="ai_no_key">Enter your %1$s API key in Settings first.</string>
-    <string name="ai_privacy">Only the summary numbers and findings above are sent to the AI service, not the raw log or GPS. Each request is billed to your API key.</string>
+    <string name="ai_privacy">Sends this ride\'s health result and an engine-data summary (stats for each value, averages per riding condition, temperature trend, fault codes) to the AI service. The raw log, speed and GPS are never sent. Each explanation is billed to your API key.</string>
     <string name="ai_rerun">Ask again</string>
     <string name="ai_run">Explain with AI</string>
     <string name="ai_title">AI explanation (%1$s)</string>

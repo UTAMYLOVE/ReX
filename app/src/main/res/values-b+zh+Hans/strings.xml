@@ -264,7 +264,7 @@
     <string name="ai_busy">解读中…</string>
     <string name="ai_empty">AI 没有回传内容。</string>
     <string name="ai_no_key">请先在「设定」填入 %1$s 的 API 金钥。</string>
-    <string name="ai_privacy">只会把上面的摘要数值和发现送给 AI 服务，不送原始纪录和 GPS。每次解读都会用你的 API 金钥计费。</string>
+    <string name="ai_privacy">会把这趟的健检结果和引擎数据摘要（各数值统计、各工况平均、温度变化、故障码）送给 AI 服务；不送原始纪录、车速和 GPS。每次解读都会用你的 API 金钥计费。</string>
     <string name="ai_rerun">重新解读</string>
     <string name="ai_run">AI 解读</string>
     <string name="ai_title">AI 解读（%1$s）</string>

@@ -60,7 +60,7 @@ class AndroidAi : AiClient {
             c.setRequestProperty("Authorization", "Bearer $apiKey")
             val body = JSONObject()
                 .put("model", model)
-                .put("max_tokens", 1500)
+                .put("max_tokens", 2500)
                 .put("stream", false)
                 .put("messages", JSONArray()
                     .put(JSONObject().put("role", "system").put("content", system))

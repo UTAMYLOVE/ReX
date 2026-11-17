@@ -264,7 +264,7 @@
     <string name="ai_busy">解析中…</string>
     <string name="ai_empty">AI から応答がありませんでした。</string>
     <string name="ai_no_key">先に設定で %1$s の API キーを入力してください。</string>
-    <string name="ai_privacy">AI サービスに送るのは上の要約数値と所見だけで、生ログや GPS は送りません。リクエストごとに API キーに課金されます。</string>
+    <string name="ai_privacy">この走行の点検結果とエンジンデータの要約（各値の統計、運転状況ごとの平均、温度の推移、故障コード）を AI サービスに送ります。元の記録・車速・GPS は送りません。解説のたびに API キーで課金されます。</string>
     <string name="ai_rerun">もう一度</string>
     <string name="ai_run">AI で解説</string>
     <string name="ai_title">AI 解説（%1$s）</string>
