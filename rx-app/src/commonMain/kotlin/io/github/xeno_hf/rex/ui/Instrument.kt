@@ -37,7 +37,7 @@ import kotlin.math.sin
 object Inst {
     // 六色
     val sakura = Color(0xFFFEDFE1); val beige = Color(0xFFD7C4BB); val rose = Color(0xFFDC9FB4)
-    val white = Color(0xFFFFFFFF); val peak = Color(0xFF6F8BFF); val aqua = Color(0xFFA5DEE4); val mocha = Color(0xFF9E7A7A)
+    val white = Color(0xFFFFFFFF); val peak = Color(0xFFA5DEE4); val aqua = Color(0xFFA5DEE4); val mocha = Color(0xFF9E7A7A)
     // 衍生
     // 夜櫻 A2「粉嫩櫻色環狀」：玫瑰黑紫底、粉色系轉速環；不用黃色，紅色只有一種
     val bg = Color(0xFF200D19); val surf1 = Color(0xFF33192A); val surf2 = Color(0xFF3E1E30); val pod = Color(0xFF3A1B2C)
