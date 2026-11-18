@@ -25,6 +25,8 @@ class RevFlash(var settings: Settings = Settings()) {
         val flash: Boolean = true,
         /** 爆閃轉速（rpm）：到這裡就整圈爆閃；null＝跟著紅線（紅線前 200）。跟紅線分開設，CVT 車全油門到不了紅線也能閃。 */
         val flashRpm: Int? = null,
+        /** 先慢閃：比爆閃轉速低這麼多轉就開始慢閃，到爆閃轉速變快閃；0＝不分段（到了才閃）。 */
+        val preRpm: Int = 0,
     )
 
     data class Output(val state: State, val on: Boolean) {
@@ -38,6 +40,7 @@ class RevFlash(var settings: Settings = Settings()) {
     private var revBelowSince = -1L
     private var wotSince = -1L
     private var tpsLowSince = -1L
+    private var fast = false
 
     fun reset() {
         state = State.NORMAL; entryMs = 0; revAboveSince = -1; revBelowSince = -1; wotSince = -1; tpsLowSince = -1
@@ -51,7 +54,10 @@ class RevFlash(var settings: Settings = Settings()) {
         val t = tps ?: 0.0
 
         // 計時器
-        val enter = s.flashRpm ?: (r - 200)
+        val fastAt = s.flashRpm ?: (r - 200)
+        val enter = fastAt - s.preRpm.coerceAtLeast(0)
+        // 快閃／慢閃：到爆閃轉速變快，掉回 150 轉以下才變慢（免得在邊界上一直換）
+        if (rpm >= fastAt) fast = true else if (rpm < fastAt - 150) fast = false
         if (rpm >= enter) { if (revAboveSince < 0) revAboveSince = tMs } else revAboveSince = -1
         if (rpm < enter - 300) { if (revBelowSince < 0) revBelowSince = tMs } else revBelowSince = -1
         if (t >= 95.0 && rpm >= enter - 1800) { if (wotSince < 0) wotSince = tMs } else wotSince = -1
@@ -85,7 +91,8 @@ class RevFlash(var settings: Settings = Settings()) {
         }
 
         val flashing = state == State.REV || state == State.WOT_BURST
-        val on = !flashing || !s.flash || ((tMs - entryMs) % PERIOD_MS) < ON_MS
+        val period = if (state != State.REV || s.preRpm <= 0) PERIOD_MS else if (fast) FAST_MS else SLOW_MS
+        val on = !flashing || !s.flash || ((tMs - entryMs) % period) < period / 2
         return Output(state, on)
     }
 
@@ -94,6 +101,9 @@ class RevFlash(var settings: Settings = Settings()) {
     companion object {
         const val ON_MS = 183L
         const val PERIOD_MS = 366L
+        /** 分段爆閃：慢閃約每秒 1.5 下，快閃約每秒 4 下。 */
+        const val SLOW_MS = 660L
+        const val FAST_MS = 250L
         const val MIN_CYCLES = 3
         const val REV_ENTER_MS = 100L
         const val REV_EXIT_MS = 400L

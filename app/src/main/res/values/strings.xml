@@ -331,6 +331,13 @@
     <string name="set_flash">Flash the rev bar</string>
     <string name="set_flash_rpm">Flash at (rpm)</string>
     <string name="set_flash_rpm_hint">The whole ring flashes at this rpm. On a CVT the rpm stays near one number at full throttle, so set it there or a little lower. Redline only sets where the red zone starts on the dial.</string>
+    <string name="set_flash_pre">Slow flash first (rpm before)</string>
+    <string name="set_flash_pre_off">Off</string>
+    <string name="set_flash_pre_hint">Slow flash from %1$s rpm, fast flash from %2$s rpm.</string>
+    <string name="set_warm">Warm-up mode</string>
+    <string name="set_warm_hint">While the engine is cold (below 70 °C) the red zone and flash rpm are lowered, from 6,000 rpm when cold back up to your setting when warm. It is a reminder only; it cannot limit the engine.</string>
+    <string name="warm_title">Warming up</string>
+    <string name="warm_limit">Keep under %1$s rpm</string>
     <string name="set_flash_hint">Only the rev bar flashes, 2.7 times a second, below the 3-per-second photosensitivity limit. Off = it lights steadily instead.</string>
     <string name="set_lock">Lock MAP and function buttons</string>
     <string name="set_monitor">Monitor screen</string>

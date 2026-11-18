@@ -79,6 +79,7 @@ fun MonitorScreen() {
     val wot by repo.wotMode.collectAsState()
     val flashOn by repo.flashOn.collectAsState()
     val flashRpm by repo.flashRpm.collectAsState()
+    val flashPre by repo.flashPre.collectAsState()
     val gpsSpeed by repo.speedFromGps.collectAsState()
     val night = !RxColors.palette.light
     val pal = if (night) PagePal.NIGHT else PagePal.DAY
@@ -86,10 +87,15 @@ fun MonitorScreen() {
 
     // 轉速條動畫：每一幀依最新資料算一次（閃爍相位用幀時間，不用動畫器；省電模式也照樣閃）
     val anim = remember { DialAnimator() }
-    anim.settings = RevFlash.Settings(redline, wot, flashOn, flashRpm.takeIf { it > 0 })
+    val connected = state == SessionState.Streaming
+    // 熱車模式：引擎還沒熱時，紅區和爆閃暫時壓低（只是提示）
+    val warmOn by repo.warmMode.collectAsState()
+    val warmup = remember { rx.session.Warmup() }
+    val normalFlash = if (flashRpm > 0) flashRpm else redline - 200
+    val warmLimit = if (warmOn && connected) warmup.limit(live?.v(Ch.T_ENG), normalFlash) else null
+    anim.settings = RevFlash.Settings(warmLimit?.let { min(redline, ((it + 499) / 500) * 500) } ?: redline, wot, flashOn, warmLimit ?: flashRpm.takeIf { it > 0 }, flashPre)
     val frame = remember { mutableStateOf<DialData?>(null) }
     val liveNow by rememberUpdatedState(live)
-    val connected = state == SessionState.Streaming
     val connNow by rememberUpdatedState(connected)
     val gpsNow by rememberUpdatedState(gpsSpeed)
     LaunchedEffect(Unit) {
@@ -120,7 +126,7 @@ fun MonitorScreen() {
         val land = maxWidth > maxHeight
         val mw = maxWidth.value
         val dialH = when (style) { MonStyle.A -> A_H; MonStyle.B -> B_H; MonStyle.C, MonStyle.D -> C_H }
-        val lowerDu = 4 * ROW_H + 14 + 8 + 30 + 8 + 24 + (if (mapAlert != null) 48f else 0f) + (if (nudge) 48f else 0f)
+        val lowerDu = 4 * ROW_H + 14 + 8 + 30 + 8 + 24 + (if (mapAlert != null) 48f else 0f) + (if (nudge) 48f else 0f) + (if (warmLimit != null) 44f else 0f)
         // k：每個設計單位幾 dp
         val k = if (land) min((maxWidth.value * 0.48f) / 412f, maxHeight.value / dialH)
         else min(maxWidth.value / 412f, maxHeight.value / (dialH + lowerDu + 20))
@@ -155,6 +161,7 @@ fun MonitorScreen() {
         val lower: @Composable (Float) -> Unit = { kk ->
             Column(Modifier.width((412 * kk).dp)) {
                 mapAlert?.let { MapAlertBar(it, pal, kk, onOpen = { mapOpen = true }) { repo.ackMapAlert() } }
+                warmLimit?.let { WarmBar(live?.v(Ch.T_ENG) ?: 0.0, it, pal, kk) }
                 // 八列數據：左右各四，每列＝名稱＋數字＋一條細量表
                 for (row in 0 until 4) {
                     Row(Modifier.padding(start = (20 * kk).dp, top = ((if (row == 0) 14f else 0f) * kk).dp)) {
@@ -458,6 +465,29 @@ private fun DrawScope.rideRow(tm: TextMeasurer, recording: Boolean, ride: RideSt
 }
 
 /** 「油圖被切換、不是從這支手機切的」提醒條（注意等級：玫瑰外框，不用紅色）。 */
+/** 熱車中的提示列：目前溫度 → 熱車完成溫度的進度，加上現在建議不要超過的轉速。熱了就自己消失。 */
+@Composable
+private fun WarmBar(temp: Double, limit: Int, pal: PagePal, k: Float) {
+    val tm = rememberTextMeasurer()
+    val title = stringResource(R.string.warm_title)
+    val tip = stringResource(R.string.warm_limit, Fmt.grouped(limit.toLong()))
+    Canvas(Modifier.padding(start = (16 * k).dp, top = (8 * k).dp).size((380 * k).dp, (36 * k).dp)) {
+        val s = size.width / 380f
+        withTransform({ scale(s, s, Offset.Zero) }) {
+            val p = chamPath(0f, 0f, 380f, 36f, 8f)
+            drawPath(p, pal.tile)
+            drawPath(chamPath(.75f, .75f, 378.5f, 34.5f, 7.7f), Inst.aqua, style = Stroke(1.5f))
+            val w = txt(tm, title, 12f, 17f, 13f, pal.num, FontWeight.Black)
+            txt(tm, "${Fmt.fixed(temp, 0)}°C → ${Fmt.fixed(rx.session.Warmup.WARM_C, 0)}°C", 12f + w + 8f, 17f, 13f, pal.num, FontWeight.SemiBold, digits = true)
+            txt(tm, tip, 368f, 17f, 13f, pal.num, FontWeight.Bold, anchor = 'r')
+            // 進度條：COLD→WARM
+            val f = ((temp - rx.session.Warmup.COLD_C) / (rx.session.Warmup.WARM_C - rx.session.Warmup.COLD_C)).coerceIn(0.0, 1.0).toFloat()
+            drawLine(pal.label.copy(alpha = .3f), Offset(12f, 27f), Offset(368f, 27f), 3f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(Inst.aqua, Offset(12f, 27f), Offset(12f + 356f * f, 27f), 3f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+        }
+    }
+}
+
 @Composable
 internal fun MapAlertBar(ev: Repo.MapEvent, pal: PagePal, k: Float, onOpen: () -> Unit, onAck: () -> Unit) {
     val tm = rememberTextMeasurer()

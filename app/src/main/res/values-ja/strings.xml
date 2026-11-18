@@ -314,6 +314,13 @@
     <string name="set_flash">回転バーを点滅</string>
     <string name="set_flash_rpm">点滅回転数（rpm）</string>
     <string name="set_flash_rpm_hint">この回転数でリング全体が点滅します。CVT 車は全開時に回転数がほぼ一定になるので、その付近か少し下に設定してください。レッドゾーンはメーターの赤い範囲の開始位置だけを決めます。</string>
+    <string name="set_flash_pre">先にゆっくり点滅（手前の回転数）</string>
+    <string name="set_flash_pre_off">なし</string>
+    <string name="set_flash_pre_hint">%1$s rpm からゆっくり、%2$s rpm から速く点滅します。</string>
+    <string name="set_warm">暖機モード</string>
+    <string name="set_warm_hint">エンジンが冷えている間（70°C 未満）は、レッドゾーンと点滅回転数を一時的に下げます。冷間時は 6,000 rpm、温度とともに設定値まで戻ります。目安の表示のみで、エンジンは制限しません。</string>
+    <string name="warm_title">暖機中</string>
+    <string name="warm_limit">%1$s rpm 以下を推奨</string>
     <string name="set_flash_hint">点滅するのは回転バーだけで、毎秒 2.7 回（光過敏の安全基準 毎秒 3 回未満）。オフにすると点灯のままになります。</string>
     <string name="set_lock">マップと機能ボタンをロック</string>
     <string name="set_monitor">モニター画面</string>

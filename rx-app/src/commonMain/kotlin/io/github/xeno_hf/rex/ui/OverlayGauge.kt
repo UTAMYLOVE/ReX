@@ -33,10 +33,14 @@ fun WingOverlayContent(repo: Repo) {
     val wot by repo.wotMode.collectAsState()
     val flashOn by repo.flashOn.collectAsState()
     val flashRpm by repo.flashRpm.collectAsState()
+    val flashPre by repo.flashPre.collectAsState()
     val gpsSpeed by repo.speedFromGps.collectAsState()
     val tm = rememberTextMeasurer()
     val anim = remember { DialAnimator() }
-    anim.settings = RevFlash.Settings(redline, wot, flashOn, flashRpm.takeIf { it > 0 })
+    val warmOn by repo.warmMode.collectAsState()
+    val warmup = remember { rx.session.Warmup() }
+    val warmLimit = if (warmOn && state == SessionState.Streaming) warmup.limit(live?.v(Ch.T_ENG), if (flashRpm > 0) flashRpm else redline - 200) else null
+    anim.settings = RevFlash.Settings(warmLimit?.let { kotlin.math.min(redline, ((it + 499) / 500) * 500) } ?: redline, wot, flashOn, warmLimit ?: flashRpm.takeIf { it > 0 }, flashPre)
     val frame = remember { mutableStateOf<DialData?>(null) }
     val liveNow by rememberUpdatedState(live)
     val connNow by rememberUpdatedState(state == SessionState.Streaming)

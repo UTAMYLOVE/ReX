@@ -283,7 +283,13 @@ class Repo(val platform: Platform) {
     /** 爆閃轉速；0＝還沒設，跟著紅線（紅線前 200）。 */
     val flashRpm = MutableStateFlow(prefs.getInt("flashRpm", 0))
     fun setFlashRpm(v: Int) { val x = v.coerceIn(3000, 12_000); flashRpm.value = x; prefs.putInt("flashRpm", x) }
-    fun flashSettings() = RevFlash.Settings(redline.value, wotMode.value, flashOn.value, flashRpm.value.takeIf { it > 0 })
+    /** 熱車模式：引擎還沒熱時，把紅區和爆閃轉速暫時壓低。 */
+    val warmMode = MutableStateFlow(prefs.getBoolean("warmMode", true))
+    fun setWarmMode(v: Boolean) { warmMode.value = v; prefs.putBoolean("warmMode", v) }
+    /** 先慢閃：比爆閃轉速低幾轉就開始慢閃；0＝關。 */
+    val flashPre = MutableStateFlow(prefs.getInt("flashPre", 500))
+    fun setFlashPre(v: Int) { flashPre.value = v; prefs.putInt("flashPre", v) }
+    fun flashSettings() = RevFlash.Settings(redline.value, wotMode.value, flashOn.value, flashRpm.value.takeIf { it > 0 }, flashPre.value)
 
     /** 開 App 就自動連上次的 ECU（預設開）。 */
     var autoConnect: Boolean

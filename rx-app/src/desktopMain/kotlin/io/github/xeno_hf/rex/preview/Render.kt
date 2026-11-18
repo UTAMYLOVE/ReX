@@ -93,24 +93,28 @@ fun main(args: Array<String>) {
     // 爆閃動畫：加速 → 撞紅線 → 收油，每 40 ms 一張，給使用者比較幾種爆閃配色
     System.getProperty("rx.anim")?.let {
         repo.setMonStyle(MonStyle.C)
-        for (mode in 0..3) {
-            io.github.xeno_hf.rex.ui.Inst.flashMode = mode
-            io.github.xeno_hf.rex.ui.DialAnimator.demoPeak = null
-            val dir = File(out, "anim$mode").apply { mkdirs() }
+        repo.setRedline(10_000); repo.setFlashRpm(9000); repo.setFlashPre(750)
+        io.github.xeno_hf.rex.ui.DialAnimator.demoPeak = null
+        for ((idx, theme) in listOf(ThemeChoice.NIPPON, ThemeChoice.YOZAKURA).withIndex()) {
+            val dir = File(out, "anim$idx").apply { mkdirs() }
             fun at(ms: Long): Live {
                 val e = { x: Double -> x * x * (3 - 2 * x) }
-                val rpm = when { ms < 1800 -> 3000 + 7150 * e(ms / 1800.0); ms < 3200 -> 10150 + 120 * Math.sin(ms / 60.0); else -> 10150 - 5200 * e(((ms - 3200) / 600.0).coerceAtMost(1.0)) }
-                val spd = 40 + 70 * e((ms / 3200.0).coerceAtMost(1.0))
-                return live(26 to rpm, 51 to spd, 34 to (if (ms < 3200) 62.0 else 8.0), 33 to 96.0, 29 to 14.1, 22 to 2.1, 144 to 2.0, 25 to 28.5 + ms / 800.0, 24 to 38.0, 46 to 780.0, 45 to (if (ms < 3200) 96.0 else 40.0))
+                val rpm = when {
+                    ms < 1400 -> 5000 + 3400 * e(ms / 1400.0)                 // 加速到慢閃區
+                    ms < 3400 -> 8400 + 350 * ((ms - 1400) / 2000.0)          // 8,400→8,750：慢閃
+                    ms < 3700 -> 8750 + 400 * e((ms - 3400) / 300.0)          // 衝過 9,000
+                    ms < 5600 -> 9150 + 80 * Math.sin(ms / 70.0)              // 快閃
+                    else -> 9150 - 4000 * e(((ms - 5600) / 700.0).coerceAtMost(1.0))
+                }
+                return live(26 to rpm, 51 to 40 + ms / 80.0, 34 to (if (ms < 5600) 62.0 else 8.0), 33 to 96.0, 29 to 14.1, 22 to 2.1, 144 to 2.0, 25 to 28.5, 24 to 38.0, 46 to 780.0, 45 to (if (ms < 5600) 96.0 else 40.0))
             }
             repo.live.value = at(0)
-            val scene = ImageComposeScene(618, 780, Density(1.5f)) { CompositionLocalProvider(LocalRepo provides repo) { RxTheme(ThemeChoice.NIPPON) { MonitorScreen() } } }
+            val scene = ImageComposeScene(618, 780, Density(1.5f)) { CompositionLocalProvider(LocalRepo provides repo) { RxTheme(theme) { MonitorScreen() } } }
             scene.render(0); Thread.sleep(400)
-            for (i in 0 until 110) { val ms = i * 40L; repo.live.value = at(ms); Thread.sleep(15); val img = scene.render((1000 + ms) * 1_000_000)
+            for (i in 0 until 165) { val ms = i * 40L; repo.live.value = at(ms); Thread.sleep(15); val img = scene.render((1000 + ms) * 1_000_000)
                 File(dir, "%03d.png".format(i)).writeBytes(img.encodeToData(EncodedImageFormat.PNG)!!.bytes) }
             scene.close()
         }
-        io.github.xeno_hf.rex.ui.Inst.flashMode = 0
         return
     }
     val steady = listOf(20L, 40L, 60L)
@@ -124,6 +128,9 @@ fun main(args: Array<String>) {
     }
     repo.setMonStyle(MonStyle.C)
     repo.mapAlert.value = Repo.MapEvent(2, 3, 1_763_280_501_000, false, 6480.0, 71.0, null, null)
+    repo.setMonStyle(MonStyle.C)
+    shot("monitor_C_warm", 412, 760, ThemeChoice.YOZAKURA, live(26 to 3200.0, 51 to 28.0, 34 to 18.0, 33 to 52.0, 29 to 14.1, 22 to 2.1, 144 to 2.0, 25 to 18.5, 24 to 26.0, 46 to 620.0, 45 to 48.0), steady) { MonitorScreen() }
+    shot("monitor_C_warm_day", 412, 760, ThemeChoice.NIPPON, live(26 to 3200.0, 51 to 28.0, 34 to 18.0, 33 to 52.0, 29 to 14.1, 22 to 2.1, 144 to 2.0, 25 to 18.5, 24 to 26.0, 46 to 620.0, 45 to 48.0), steady) { MonitorScreen() }
     shot("monitor_C_mapalert", 412, 760, ThemeChoice.YOZAKURA, hot, steady) { MonitorScreen() }
     repo.mapAlert.value = null
     shot("overlay_normal", 232, 148, ThemeChoice.YOZAKURA, cruise, steady) { Box(Modifier.fillMaxSize().background(Color(0xFFECE8E1)).padding(10.dp)) { WingOverlayContent(repo) } }

@@ -314,6 +314,13 @@
     <string name="set_flash">转速条闪烁</string>
     <string name="set_flash_rpm">爆闪转速（rpm）</string>
     <string name="set_flash_rpm_hint">转速到这个数字，整圈转速灯就爆闪。CVT 车全油门时转速会停在某个数字附近，设在那里或低一点。「红线」只决定表上红区从哪里开始。</string>
+    <string name="set_flash_pre">先慢闪（提前几转）</string>
+    <string name="set_flash_pre_off">不慢闪</string>
+    <string name="set_flash_pre_hint">现在是 %1$s 转开始慢闪，%2$s 转变快闪。</string>
+    <string name="set_warm">热车模式</string>
+    <string name="set_warm_hint">引擎还没热（70°C 以下）时，表上的红区和爆闪转速会暂时降低：冷车 6,000 转，随温度慢慢升回你设定的数字。只是提醒，不会限制引擎。</string>
+    <string name="warm_title">热车中</string>
+    <string name="warm_limit">建议不超过 %1$s 转</string>
     <string name="set_flash_hint">只有转速条会闪，每秒 2.7 次，低于光敏安全标准的每秒 3 次。关掉就改成恒亮。</string>
     <string name="set_lock">锁定油图与功能钮</string>
     <string name="set_monitor">监控画面</string>

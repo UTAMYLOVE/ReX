@@ -364,8 +364,15 @@ private fun YzMonitorSettings() {
             YzButton("+ 250") { repo.setFlashRpm(eff + 250) }
         }
         YzHint(stringResource(R.string.set_flash_rpm_hint))
+        val pre by repo.flashPre.collectAsState()
+        Text(stringResource(R.string.set_flash_pre), color = RxColors.text, fontSize = 16.sp, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
+        YzSegmented(listOf(0, 250, 500, 750, 1000).map { it to (if (it == 0) stringResource(R.string.set_flash_pre_off) else "−$it") }, pre, { repo.setFlashPre(it) })
+        YzHint(stringResource(R.string.set_flash_pre_hint, rx.protocol.Fmt.grouped((eff - pre).toLong()), rx.protocol.Fmt.grouped(eff.toLong())))
         Spacer(Modifier.height(8.dp))
         YzSwitchRow(stringResource(R.string.set_flash), flash, divider = true) { repo.setFlashOn(it) }
+        val warm by repo.warmMode.collectAsState()
+        YzSwitchRow(stringResource(R.string.set_warm), warm, divider = true) { repo.setWarmMode(it) }
+        YzHint(stringResource(R.string.set_warm_hint))
         YzHint(stringResource(R.string.set_tiles_hint))
     }
 }
