@@ -278,6 +278,7 @@
     <string name="f_kpa">歧管壓力</string>
     <string name="f_maxrpm">本趟最高轉速</string>
     <string name="f_pw">噴油時間</string>
+    <string name="f_pw2">第二噴嘴噴油時間</string>
     <string name="f_sa">點火角度</string>
     <string name="f_temp">引擎溫度</string>
     <string name="f_tps">節氣門</string>

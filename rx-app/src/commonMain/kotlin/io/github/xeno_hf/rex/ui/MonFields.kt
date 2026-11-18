@@ -27,6 +27,7 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
     IAT("iat", R.string.f_iat, "°C", 0),
     KPA("kpa", R.string.f_kpa, "kPa", 0),
     PW("pw", R.string.f_pw, "ms", 2),
+    PW2("pw2", R.string.f_pw2, "ms", 2),
     KML("kml", R.string.f_kml, "km/L", 1),
     TRIP("trip", R.string.f_trip, "km", 1),
     MAX_RPM("maxrpm", R.string.f_maxrpm, "rpm", 0),
@@ -47,6 +48,7 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
         IAT -> l?.v(24)
         KPA -> l?.v(45)
         PW -> l?.v(35)
+        PW2 -> l?.byName("Cyl1s_Comn_FuelPW")
         KML -> l?.v(53)
         TRIP -> ride.km
         MAX_RPM -> ride.maxRpm.takeIf { it > 0 }
@@ -60,7 +62,7 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
     /** 細量表的範圍（最小、最大）；[redFrom] 之後畫成紅區（沒有就不畫）。 */
     val range: Pair<Double, Double> get() = when (this) {
         TEMP -> 40.0 to 130.0; VOLT -> 10.0 to 16.0; AFR -> 10.0 to 18.0; TRIM -> -25.0 to 25.0; FAULTS -> 0.0 to 5.0
-        TPS, DUTY -> 0.0 to 100.0; SA -> 0.0 to 50.0; IAT -> 0.0 to 80.0; KPA -> 0.0 to 105.0; PW -> 0.0 to 15.0
+        TPS, DUTY -> 0.0 to 100.0; SA -> 0.0 to 50.0; IAT -> 0.0 to 80.0; KPA -> 0.0 to 105.0; PW, PW2 -> 0.0 to 15.0
         KML -> 0.0 to 60.0; KML_NOW -> 0.0 to 80.0; TRIP -> 0.0 to 100.0; MAX_RPM -> 0.0 to 12_000.0; NBO2 -> 0.0 to 1000.0
         HP, TQ -> 0.0 to 30.0
     }

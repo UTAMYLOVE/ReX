@@ -278,6 +278,7 @@
     <string name="f_kpa">吸気圧</string>
     <string name="f_maxrpm">今回の最高回転数</string>
     <string name="f_pw">噴射時間</string>
+    <string name="f_pw2">第2インジェクター噴射時間</string>
     <string name="f_sa">点火時期</string>
     <string name="f_temp">エンジン温度</string>
     <string name="f_tps">スロットル</string>

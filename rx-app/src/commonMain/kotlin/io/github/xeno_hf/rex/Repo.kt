@@ -48,6 +48,8 @@ import rx.session.RevFlash
 /** 一輪即時資料。 */
 class Live(val layout: DecodedLayout, val raw: LongArray, val tNanos: Long, val seq: Long) {
     fun v(absid: Int): Double? = layout.physical(absid, raw)
+    /** 依通道名稱取值（各平台的 absid 不一樣的通道用這個）。 */
+    fun byName(name: String): Double? = layout.registry.byName[name]?.absid?.let { v(it) }
 }
 
 /** 環形緩衝：示波器用（最近 [capacity] 輪）。 */
@@ -343,7 +345,7 @@ class Repo(val platform: Platform) {
         if (vehModel.isNotBlank()) appendLine("車款：$vehModel")
         if (vehCc.isNotBlank()) appendLine("排氣量：${vehCc} cc")
         when (vehCooling) { "water" -> appendLine("冷卻：水冷"); "air" -> appendLine("冷卻：氣冷（引擎溫度正常範圍比水冷高）") }
-        when (vehInjector) { "single" -> appendLine("噴油：單噴油嘴"); "dual" -> appendLine("噴油：雙噴油嘴（紀錄裡只有第一支噴嘴的噴油時間，看不到第二支）") }
+        when (vehInjector) { "single" -> appendLine("噴油：單噴油嘴"); "dual" -> appendLine("噴油：雙噴油嘴（總噴油量要把兩支的噴油時間一起看；第二支通常只在大油門、高轉才噴）") }
         when (vehAf2) { "yes" -> appendLine("有裝 AF2 寬頻空燃比感知器"); "no" -> appendLine("沒有裝 AF2 寬頻空燃比感知器（空燃比相關欄位是空的或 0，不是故障）") }
         if (vehMods.isNotBlank()) appendLine("改裝：$vehMods")
         when (vehUse) { "commute" -> appendLine("用途：通勤為主"); "fun" -> appendLine("用途：常拉高轉、跑山"); "mixed" -> appendLine("用途：通勤和休閒都有") }

@@ -295,6 +295,7 @@
     <string name="f_kpa">Manifold pressure</string>
     <string name="f_maxrpm">Max RPM this ride</string>
     <string name="f_pw">Injector pulse</string>
+    <string name="f_pw2">2nd injector pulse</string>
     <string name="f_sa">Ignition advance</string>
     <string name="f_temp">Engine temp</string>
     <string name="f_tps">Throttle</string>

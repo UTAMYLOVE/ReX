@@ -21,6 +21,7 @@ object EngineDigest {
         Ch("T_Air", "進氣溫度", "°C", 0, -30.0, 120.0),
         Ch("SA", "點火角度", "°", 1, -30.0, 70.0),
         Ch("Cyl1_Comn_FuelPW", "噴油時間", "ms", 2, 0.01, 50.0),
+        Ch("Cyl1s_Comn_FuelPW", "第二噴嘴噴油時間（雙噴車才有；只在噴的時候算）", "ms", 2, 0.01, 50.0),
         Ch("Cyl1_Injector_Period_Rate", "噴油嘴開度", "%", 0, 0.0, 100.0),
         Ch("Cyl1_Eng_AP", "歧管壓力", "kPa", 0, 5.0, 150.0),
         Ch("Volt_Batt", "電瓶電壓", "V", 1, 5.0, 20.0),
@@ -36,7 +37,7 @@ object EngineDigest {
     )
 
     /** 分工況平均用的通道（用上面同一組範圍）。 */
-    private val REGION_COLS = listOf("RPM", "T_Eng", "SA", "Cyl1_Comn_FuelPW", "Cyl1_Eng_AP", "NBO2_Volt", "Fuel_CL", "AFR_WBO2")
+    private val REGION_COLS = listOf("RPM", "T_Eng", "SA", "Cyl1_Comn_FuelPW", "Cyl1s_Comn_FuelPW", "Cyl1_Eng_AP", "NBO2_Volt", "Fuel_CL", "AFR_WBO2")
 
     fun build(loga: Loga): String {
         val n = loga.rows.size
