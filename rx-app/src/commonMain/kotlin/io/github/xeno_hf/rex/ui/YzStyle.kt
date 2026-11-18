@@ -54,26 +54,26 @@ object Yz {
     /** 10° 斜角的水平位移比例。 */
     val T10 = tan(10.0 * kotlin.math.PI / 180).toFloat()
     /** 櫻粉（六色之一）：字標、重點。 */
-    val pastel = Color(0xFFFEDFE1)
+    val pastel = Color(0xFFFFFFFF)
     val rose = Color(0xFFDC9FB4)
     /** 粉色在深底上還看得出是粉的那一階：✓、日期牌、小標。 */
-    val petal = Color(0xFFF7C1D0)
+    val petal = Color(0xFFFFFFFF)
     val aqua = Color(0xFFA5DEE4)
     val mocha = Color(0xFF9E7A7A)
     val beige = Color(0xFFD7C4BB)
     /** 頂列與底部頁籤的深色帶（日夜都一樣）。 */
-    val band = Color(0xFF12060E)
+    val band = Color(0xFFDC9FB4)
     /** 粉色、紅色、白色底上的深色字（玫瑰黑紫）。 */
-    val ink = Color(0xFF1C0E15)
+    val ink = Color(0xFF9E7A7A)
     /** 沒選的斜切板外框。 */
-    val slabLine get() = if (RxColors.palette.light) Color(0xFFD9A9B7) else Color(0xFF8E5D74)
+    val slabLine get() = if (RxColors.palette.light) Color(0xFFFEDFE1) else Color(0xFF9E7A7A)
     /** 小標、單位（夜間玫瑰、日間深玫瑰）。 */
-    val label get() = if (RxColors.palette.light) Color(0xFF7A4656) else rose
+    val label get() = if (RxColors.palette.light) Color(0xFF9E7A7A) else rose
     /** 「注意」：玫瑰粉（不用黃色）。「危險」：紅。 */
     val caution get() = RxColors.warn
     val danger get() = RxColors.danger
     /** 主要框線（夜間白、日間深字色）。 */
-    val keyline get() = if (RxColors.palette.light) Color(0xFF1F0E16) else Color(0xFFFFFFFF)
+    val keyline get() = if (RxColors.palette.light) Color(0xFF9E7A7A) else Color(0xFFFFFFFF)
 }
 
 /** 10° 平行四邊形（左下往右上斜）。 */
@@ -179,14 +179,14 @@ fun YzHatch(color: Color, modifier: Modifier) {
 @Composable
 fun YzStateChip(text: String, color: Color, dot: Boolean, hatch: Boolean, modifier: Modifier = Modifier, compact: Boolean = false) {
     Row(
-        modifier.clip(YzChipShape).background(Color(0xFF24101C), YzChipShape)
+        modifier.clip(YzChipShape).background(Color(0xFFDC9FB4), YzChipShape)
             .border(1.5.dp, color.copy(alpha = 0.85f), YzChipShape).heightIn(min = if (compact) 26.dp else 32.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (hatch) YzHatch(color, Modifier.size(14.dp, if (compact) 26.dp else 32.dp))
         Spacer(Modifier.width(if (compact) 6.dp else 10.dp))
         if (dot) { Box(Modifier.size(8.dp).background(color, CutCornerShape(4.dp))); Spacer(Modifier.width(6.dp)) }
-        Text(text, color = if (hatch) color else Color(0xFFFFF1F3), fontSize = if (compact) 11.sp else 14.sp, fontWeight = FontWeight.Black, maxLines = 1)
+        Text(text, color = if (hatch) color else Color(0xFFFFFFFF), fontSize = if (compact) 11.sp else 14.sp, fontWeight = FontWeight.Black, maxLines = 1)
         Spacer(Modifier.width(if (compact) 6.dp else 12.dp))
     }
 }

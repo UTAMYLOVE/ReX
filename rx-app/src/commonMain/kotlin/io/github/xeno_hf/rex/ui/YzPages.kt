@@ -93,12 +93,12 @@ internal fun YzDatePlate(folder: String) {
         big = "$h:$mi"
     }
     val light = RxColors.palette.light
-    Box(Modifier.background(if (light) Color.White else Color(0xFF170811)).border(1.5.dp, Yz.keyline.copy(alpha = 0.85f)).padding(horizontal = 12.dp, vertical = 4.dp)) {
+    Box(Modifier.background(if (light) Color.White else Color(0xFFDC9FB4)).border(1.5.dp, Yz.keyline.copy(alpha = 0.85f)).padding(horizontal = 12.dp, vertical = 4.dp)) {
         // 車牌兩顆螺絲
         Box(Modifier.align(Alignment.TopStart).padding(top = 1.dp).size(3.dp).background(Yz.label, androidx.compose.foundation.shape.CircleShape))
         Box(Modifier.align(Alignment.TopEnd).padding(top = 1.dp).size(3.dp).background(Yz.label, androidx.compose.foundation.shape.CircleShape))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(top, color = if (light) Color(0xFFA8406A) else Yz.petal, style = digits(12.sp, FontWeight.Bold))
+            Text(top, color = if (light) Color(0xFF9E7A7A) else Yz.petal, style = digits(12.sp, FontWeight.Bold))
             Text(big, color = RxColors.text, style = digits(24.sp, FontWeight.ExtraBold))
         }
     }
@@ -131,7 +131,7 @@ internal fun YzPassChip(label: String, level: rx.session.EngineHealth.Level) {
         Modifier.then(if (fill != null) Modifier.background(fill, shape) else Modifier.border(1.dp, RxColors.line, shape)).padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(if (bad) "✕" else "✓", color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else if (RxColors.palette.light) Color(0xFFA8406A) else Yz.petal, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Text(if (bad) "✕" else "✓", color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else if (RxColors.palette.light) Color(0xFF9E7A7A) else Yz.petal, fontSize = 12.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.width(4.dp))
         Text(label, color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else RxColors.text.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }
@@ -321,12 +321,8 @@ fun YzSettings(onEditConnection: () -> Unit, onStatus: () -> Unit) {
         YzMonitorSettings()
         YzOverlaySettings()
         YzAiSettings()
-        YzSection(5, stringResource(R.string.set_look)) {
-            val theme by repo.theme.collectAsState()
-            val choices = listOf(ThemeChoice.SYSTEM, ThemeChoice.YOZAKURA, ThemeChoice.NIPPON).let { if (theme in it) it else it + theme }
-            YzSegmented(choices.map { it to stringResource(it.label) }, theme, { repo.setTheme(it) })
-        }
-        YzSection(6, stringResource(R.string.set_about)) {
+        // 外觀只有一套（六色淺底），不用選
+        YzSection(5, stringResource(R.string.set_about)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 YzDecal(scale = 0.8f)
                 Spacer(Modifier.width(14.dp))
