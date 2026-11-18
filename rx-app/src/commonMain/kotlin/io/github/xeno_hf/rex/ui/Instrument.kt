@@ -201,11 +201,11 @@ fun DrawScope.ledRing(
         val da = 2f / ((r1 + r2) / 2) * 180f / PI.toFloat()
         drawPath(sectorPath(cx, cy, r1 - 3, r2 + 3, a2 - da, a2), Color.White)
     }
-    // peak-hold：2 單位白色徑向刻線，3 秒後淡出，不閃
+    // 最近 3 秒的最高轉速
     d.peakRpm?.let { pk ->
         if (d.peakAlpha > 0.01f) {
             val a = RevScale.ang(pk)
-            // 小藍條：剛剛到過的最高轉速，比燈環內外各多出一點，容易看到
+            // 小藍條：比燈環內外各多出一點，容易看到
             drawLine(Inst.peak.copy(alpha = d.peakAlpha * .35f), pt(cx, cy, r1 - 5, a), pt(cx, cy, r2 + 5, a), strokeWidth = 8f)
             drawLine(Inst.peak.copy(alpha = d.peakAlpha), pt(cx, cy, r1 - 5, a), pt(cx, cy, r2 + 5, a), strokeWidth = 3.5f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
         }
@@ -555,8 +555,7 @@ class DialAnimator(var settings: RevFlash.Settings = RevFlash.Settings()) {
     private val flash = RevFlash(settings)
     private var needle = 0.0
     private var lastMs = -1L
-    private var peak = 0.0
-    private var peakAt = 0L
+    private val win = ArrayDeque<Pair<Long, Double>>()
     /** 只給預覽圖用：固定顯示一條最高轉速記號。 */
     companion object { var demoPeak: Double? = null }
 
@@ -568,13 +567,12 @@ class DialAnimator(var settings: RevFlash.Settings = RevFlash.Settings()) {
         lastMs = tMs
         // 2,500 rpm 以下不平滑（看得到怠速游動）；以上臨界阻尼 τ≈70 ms
         needle = if (r < 2500 || dt == 0.0) r else needle + (r - needle) * (1 - kotlin.math.exp(-dt / 70.0))
-        // peak-hold：最高轉速保持 3 秒，再淡出 0.4 秒
-        if (r >= peak || tMs - peakAt > 3400) { if (r >= peak || r > 0) { peak = r; peakAt = tMs } }
-        val age = tMs - peakAt
-        // 小藍條：轉速掉下來（比最高低 250 以上）才顯示，不限高轉
-        demoPeak?.let { return DialData(r, needle, speed, map, settings.redline, out, it, 1f, connected) }
-        val alpha = if (peak < 1500 || peak - r < 250) 0f else if (age <= 3000) 1f else max(0f, 1f - (age - 3000) / 400f)
-        return DialData(r, needle, speed, map, settings.redline, out, peak.takeIf { it > 0 }, min(1f, alpha), connected)
+        // 小藍條：最近 3 秒內的最高轉速（滑動視窗），連線中一直顯示
+        while (win.isNotEmpty() && tMs - win.first().first > 3000) win.removeFirst()
+        while (win.isNotEmpty() && win.last().second <= r) win.removeLast()   // 單調佇列：前面永遠是視窗內最大
+        win.addLast(tMs to r)
+        val peak = demoPeak ?: win.first().second
+        return DialData(r, needle, speed, map, settings.redline, out, peak.takeIf { it > 0 }, if (connected && peak > 0) 1f else 0f, connected)
     }
 }
 
