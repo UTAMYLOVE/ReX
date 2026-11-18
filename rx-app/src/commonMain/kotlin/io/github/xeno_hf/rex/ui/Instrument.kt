@@ -47,6 +47,8 @@ object Inst {
     val petal = Color(0xFFFFFFFF); val hotRose = Color(0xFF1F0E16); val band = Color(0xFFDC9FB4)
     val segOff = sakura.copy(alpha = 0.55f); val ghost = aqua.copy(alpha = 0.45f)
 
+    var flashMode = 1
+    val flashRed = Color(0xFFE5484D)
     const val T10 = 0.17632698f // tan 10°
     const val SKEW = -0.17632698f // 文字 −10° 斜（Android/Skia 的負值＝往右斜）
     const val SEGS = 29
@@ -177,8 +179,13 @@ fun DrawScope.ledRing(
 ) {
     val lit = if (d.connected) RevScale.lit(d.rpm) else 0
     val flashing = d.revFlash || d.wotFlash
-    val flashCol = if (d.flash.dimmed) Inst.white else Inst.aqua
-    val dim = 1f
+    // 爆閃配色：0 白／水藍、1 深色／水藍、2 紅色明滅、3 深色／水藍＋整個錶面一起閃
+    val flashCol = when (Inst.flashMode) {
+        0 -> if (d.flash.dimmed) Inst.white else Inst.aqua
+        2 -> Inst.flashRed
+        else -> if (d.flash.dimmed) Inst.ink else Inst.aqua
+    }
+    val dim = if (Inst.flashMode == 2 && d.flash.dimmed) 0.15f else 1f
     val gapDeg = gapPx?.let { it / ((r1 + r2) / 2) * 180f / PI.toFloat() } ?: Inst.GAP
     for (n in 1..Inst.SEGS) {
         val a1 = 135 + (n - 1) * Inst.PITCH + gapDeg / 2
@@ -330,12 +337,13 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean, slots: Lis
     drawLine(Brush.horizontalGradient(listOf(Inst.beige, Inst.mocha, Inst.beige), startX = 95f, endX = 317f), Offset(95.1f, 313f), Offset(316.9f, 313f), 1.5f)
     clipPath(faceClip) {
         face(cx, cy, 160f)
+        if (Inst.flashMode == 3 && d.revFlash && !d.flash.dimmed) drawCircle(Inst.aqua, 160f, Offset(cx, cy))
         drawCircle(Tone.ring, 96f, Offset(cx, cy), style = Stroke(1f))
         ticks(cx, cy, 160f, d.redline)
         numerals(tm, cx, cy, 122f, d.redline)
         // 沒有指針：轉速看外圈燈環，正中央放大的數位轉速
         if (d.connected) {
-            txt(tm, rpmText(d.rpm), cx, cy + 20f, 54f, if (d.revFlash) Inst.red else Tone.readout, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c', spacing = -.02f)
+            txt(tm, rpmText(d.rpm), cx, cy + 20f, 54f, if (d.revFlash && Inst.flashMode == 2) Inst.flashRed else Tone.readout, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c', spacing = -.02f)
             txt(tm, "RPM", cx, cy + 46f, 14f, Tone.sub, anchor = 'c', spacing = .12f)
         }
         // 內圈上半：兩個小數值（在指針底下，像 GT3 RS 錶裡的小視窗）

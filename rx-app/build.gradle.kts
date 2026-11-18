@@ -114,5 +114,6 @@ if (preview) {
         mainClass.set("io.github.xeno_hf.rex.preview.RenderKt")
         args(layout.buildDirectory.dir("preview").get().asFile.path)
         systemProperty("java.awt.headless", "true")
+        providers.gradleProperty("rx.anim").orNull?.let { systemProperty("rx.anim", it) }
     }
 }

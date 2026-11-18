@@ -90,6 +90,29 @@ fun main(args: Array<String>) {
         scene.close()
         println(File(out, "$name.png").path)
     }
+    // 爆閃動畫：加速 → 撞紅線 → 收油，每 40 ms 一張，給使用者比較幾種爆閃配色
+    System.getProperty("rx.anim")?.let {
+        repo.setMonStyle(MonStyle.C)
+        for (mode in 0..3) {
+            io.github.xeno_hf.rex.ui.Inst.flashMode = mode
+            io.github.xeno_hf.rex.ui.DialAnimator.demoPeak = null
+            val dir = File(out, "anim$mode").apply { mkdirs() }
+            fun at(ms: Long): Live {
+                val e = { x: Double -> x * x * (3 - 2 * x) }
+                val rpm = when { ms < 1800 -> 3000 + 7150 * e(ms / 1800.0); ms < 3200 -> 10150 + 120 * Math.sin(ms / 60.0); else -> 10150 - 5200 * e(((ms - 3200) / 600.0).coerceAtMost(1.0)) }
+                val spd = 40 + 70 * e((ms / 3200.0).coerceAtMost(1.0))
+                return live(26 to rpm, 51 to spd, 34 to (if (ms < 3200) 62.0 else 8.0), 33 to 96.0, 29 to 14.1, 22 to 2.1, 144 to 2.0, 25 to 28.5 + ms / 800.0, 24 to 38.0, 46 to 780.0, 45 to (if (ms < 3200) 96.0 else 40.0))
+            }
+            repo.live.value = at(0)
+            val scene = ImageComposeScene(618, 780, Density(1.5f)) { CompositionLocalProvider(LocalRepo provides repo) { RxTheme(ThemeChoice.NIPPON) { MonitorScreen() } } }
+            scene.render(0); Thread.sleep(400)
+            for (i in 0 until 110) { val ms = i * 40L; repo.live.value = at(ms); Thread.sleep(15); val img = scene.render((1000 + ms) * 1_000_000)
+                File(dir, "%03d.png".format(i)).writeBytes(img.encodeToData(EncodedImageFormat.PNG)!!.bytes) }
+            scene.close()
+        }
+        io.github.xeno_hf.rex.ui.Inst.flashMode = 1
+        return
+    }
     val steady = listOf(20L, 40L, 60L)
     io.github.xeno_hf.rex.ui.DialAnimator.demoPeak = 7400.0
     val revOn = listOf(1000L, 1050L, 1100L, 1150L) // 100 ms 後進 REV；1150 時在 ON 相位
