@@ -78,6 +78,7 @@ fun MonitorScreen() {
     val redline by repo.redline.collectAsState()
     val wot by repo.wotMode.collectAsState()
     val flashOn by repo.flashOn.collectAsState()
+    val flashRpm by repo.flashRpm.collectAsState()
     val gpsSpeed by repo.speedFromGps.collectAsState()
     val night = !RxColors.palette.light
     val pal = if (night) PagePal.NIGHT else PagePal.DAY
@@ -85,7 +86,7 @@ fun MonitorScreen() {
 
     // 轉速條動畫：每一幀依最新資料算一次（閃爍相位用幀時間，不用動畫器；省電模式也照樣閃）
     val anim = remember { DialAnimator() }
-    anim.settings = RevFlash.Settings(redline, wot, flashOn)
+    anim.settings = RevFlash.Settings(redline, wot, flashOn, flashRpm.takeIf { it > 0 })
     val frame = remember { mutableStateOf<DialData?>(null) }
     val liveNow by rememberUpdatedState(live)
     val connected = state == SessionState.Streaming
@@ -401,9 +402,25 @@ private fun DrawScope.tpsRow(tm: TextMeasurer, l: Live?, pal: PagePal) {
 }
 
 /** 系統狀態：一排「檢查合格貼紙」。合格＝深底細框＋水色 ✓；注意＝玫瑰底；危險＝紅底，打 ✕。 */
+/**
+ * 曲軸訊號遺失次數是 ECU 開電後一路累計的數字，發動那一下本來就會加幾次，所以不能看「大於 0」。
+ * 改成：引擎運轉中（2,000 rpm 以上）次數又增加，才亮「注意」，60 秒內沒再增加就恢復。
+ */
+private object CrankWatch {
+    private var last = -1.0
+    private var incAt = 0L
+    fun level(l: Live?): Lv {
+        val c = l?.v(72) ?: return Lv.OK
+        val now = rx.session.WallClock.nowMs()
+        if (last >= 0 && c > last && c - last < 1000 && (l.v(Ch.RPM) ?: 0.0) >= 2000) incAt = now
+        last = c
+        return if (incAt != 0L && now - incAt < 60_000) Lv.CAUTION else Lv.OK
+    }
+}
+
 private fun DrawScope.sysRow(tm: TextMeasurer, l: Live?, ride: RideStats, pal: PagePal) {
     fun lv(vararg f: MonField) = f.maxOfOrNull { it.level(it.value(l, ride), l).ordinal }?.let { Lv.entries[it] } ?: Lv.OK
-    val crank = if ((l?.v(72) ?: 0.0) > 0) Lv.CAUTION else Lv.OK
+    val crank = CrankWatch.level(l)
     val items = listOf(R.string.health_a_cooling to lv(MonField.TEMP), R.string.health_a_fuel to lv(MonField.AFR, MonField.TRIM),
         R.string.health_a_electrical to lv(MonField.VOLT), R.string.health_a_ignition to crank,
         R.string.health_a_faults to lv(MonField.FAULTS))

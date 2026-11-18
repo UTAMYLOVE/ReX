@@ -23,6 +23,8 @@ class RevFlash(var settings: Settings = Settings()) {
         val wot: Wot = Wot.BURST3,
         /** false＝完全不閃（REV／WOT 改成恆亮）。 */
         val flash: Boolean = true,
+        /** 爆閃轉速（rpm）：到這裡就整圈爆閃；null＝跟著紅線（紅線前 200）。跟紅線分開設，CVT 車全油門到不了紅線也能閃。 */
+        val flashRpm: Int? = null,
     )
 
     data class Output(val state: State, val on: Boolean) {
@@ -49,9 +51,10 @@ class RevFlash(var settings: Settings = Settings()) {
         val t = tps ?: 0.0
 
         // 計時器
-        if (rpm >= r - 200) { if (revAboveSince < 0) revAboveSince = tMs } else revAboveSince = -1
-        if (rpm < r - 500) { if (revBelowSince < 0) revBelowSince = tMs } else revBelowSince = -1
-        if (t >= 95.0 && rpm >= r - 2000) { if (wotSince < 0) wotSince = tMs } else wotSince = -1
+        val enter = s.flashRpm ?: (r - 200)
+        if (rpm >= enter) { if (revAboveSince < 0) revAboveSince = tMs } else revAboveSince = -1
+        if (rpm < enter - 300) { if (revBelowSince < 0) revBelowSince = tMs } else revBelowSince = -1
+        if (t >= 95.0 && rpm >= enter - 1800) { if (wotSince < 0) wotSince = tMs } else wotSince = -1
         if (t < 80.0) { if (tpsLowSince < 0) tpsLowSince = tMs } else tpsLowSince = -1
 
         val revHit = revAboveSince >= 0 && tMs - revAboveSince >= REV_ENTER_MS

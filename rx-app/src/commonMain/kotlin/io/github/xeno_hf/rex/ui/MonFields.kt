@@ -40,7 +40,8 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
     fun value(l: Live?, ride: RideStats): Double? = when (this) {
         TEMP -> l?.v(Ch.T_ENG)
         VOLT -> l?.v(Ch.VBATT)
-        AFR -> l?.v(Ch.AFR_WBO2)?.takeIf { it > 0.5 }
+        // 沒裝 AF2 的車這欄會是 0 或 25.x 這種固定值，不是真的空燃比，當成沒有
+        AFR -> l?.v(Ch.AFR_WBO2)?.takeIf { it in 8.0..22.0 }
         TRIM -> l?.v(22)
         FAULTS -> l?.let { it.layout.activeMalfunctions(it.raw).size.toDouble() }
         TPS -> l?.v(Ch.TPS)

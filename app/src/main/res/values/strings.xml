@@ -329,6 +329,8 @@
     <string name="set_ai_model">Model</string>
     <string name="set_auto_connect">Connect automatically when ReX opens</string>
     <string name="set_flash">Flash the rev bar</string>
+    <string name="set_flash_rpm">Flash at (rpm)</string>
+    <string name="set_flash_rpm_hint">The whole ring flashes at this rpm. On a CVT the rpm stays near one number at full throttle, so set it there or a little lower. Redline only sets where the red zone starts on the dial.</string>
     <string name="set_flash_hint">Only the rev bar flashes, 2.7 times a second, below the 3-per-second photosensitivity limit. Off = it lights steadily instead.</string>
     <string name="set_lock">Lock MAP and function buttons</string>
     <string name="set_monitor">Monitor screen</string>

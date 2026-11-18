@@ -354,6 +354,16 @@ private fun YzMonitorSettings() {
         YzSegmented(MonStyle.entries.map { it to stringResource(it.label) }, style, { repo.setMonStyle(it) })
         Text(stringResource(R.string.set_redline), color = RxColors.text, fontSize = 16.sp, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
         YzSegmented(listOf(9000, 9500, 10000, 10500, 11000).map { it to rx.protocol.Fmt.grouped(it.toLong()) }, red, { repo.setRedline(it) })
+        // 爆閃轉速：跟紅線分開（CVT 車全油門時轉速到不了紅線）
+        val fr by repo.flashRpm.collectAsState()
+        val eff = if (fr > 0) fr else red - 200
+        Text(stringResource(R.string.set_flash_rpm), color = RxColors.text, fontSize = 16.sp, modifier = Modifier.padding(top = 14.dp, bottom = 8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            YzButton("− 250") { repo.setFlashRpm(eff - 250) }
+            Text(rx.protocol.Fmt.grouped(eff.toLong()), color = RxColors.text, style = digits(26.sp, FontWeight.ExtraBold, italic = true), modifier = Modifier.padding(horizontal = 18.dp))
+            YzButton("+ 250") { repo.setFlashRpm(eff + 250) }
+        }
+        YzHint(stringResource(R.string.set_flash_rpm_hint))
         Spacer(Modifier.height(8.dp))
         YzSwitchRow(stringResource(R.string.set_flash), flash, divider = true) { repo.setFlashOn(it) }
         YzHint(stringResource(R.string.set_tiles_hint))

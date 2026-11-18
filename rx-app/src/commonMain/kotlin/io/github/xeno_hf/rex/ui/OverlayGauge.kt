@@ -32,10 +32,11 @@ fun WingOverlayContent(repo: Repo) {
     val redline by repo.redline.collectAsState()
     val wot by repo.wotMode.collectAsState()
     val flashOn by repo.flashOn.collectAsState()
+    val flashRpm by repo.flashRpm.collectAsState()
     val gpsSpeed by repo.speedFromGps.collectAsState()
     val tm = rememberTextMeasurer()
     val anim = remember { DialAnimator() }
-    anim.settings = RevFlash.Settings(redline, wot, flashOn)
+    anim.settings = RevFlash.Settings(redline, wot, flashOn, flashRpm.takeIf { it > 0 })
     val frame = remember { mutableStateOf<DialData?>(null) }
     val liveNow by rememberUpdatedState(live)
     val connNow by rememberUpdatedState(state == SessionState.Streaming)

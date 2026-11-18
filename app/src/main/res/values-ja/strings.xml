@@ -312,6 +312,8 @@
     <string name="set_ai_model">モデル</string>
     <string name="set_auto_connect">起動時に自動接続</string>
     <string name="set_flash">回転バーを点滅</string>
+    <string name="set_flash_rpm">点滅回転数（rpm）</string>
+    <string name="set_flash_rpm_hint">この回転数でリング全体が点滅します。CVT 車は全開時に回転数がほぼ一定になるので、その付近か少し下に設定してください。レッドゾーンはメーターの赤い範囲の開始位置だけを決めます。</string>
     <string name="set_flash_hint">点滅するのは回転バーだけで、毎秒 2.7 回（光過敏の安全基準 毎秒 3 回未満）。オフにすると点灯のままになります。</string>
     <string name="set_lock">マップと機能ボタンをロック</string>
     <string name="set_monitor">モニター画面</string>

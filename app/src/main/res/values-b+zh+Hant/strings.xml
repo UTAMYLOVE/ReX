@@ -312,6 +312,8 @@
     <string name="set_ai_model">模型</string>
     <string name="set_auto_connect">開 App 自動連線</string>
     <string name="set_flash">轉速條閃爍</string>
+    <string name="set_flash_rpm">爆閃轉速（rpm）</string>
+    <string name="set_flash_rpm_hint">轉速到這個數字，整圈轉速燈就爆閃。CVT 車全油門時轉速會停在某個數字附近，設在那裡或低一點。「紅線」只決定錶上紅區從哪裡開始。</string>
     <string name="set_flash_hint">只有轉速條會閃，每秒 2.7 次，低於光敏安全標準的每秒 3 次。關掉就改成恆亮。</string>
     <string name="set_lock">鎖定油圖與功能鈕</string>
     <string name="set_monitor">監控畫面</string>

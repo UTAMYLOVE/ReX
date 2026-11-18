@@ -280,7 +280,10 @@ class Repo(val platform: Platform) {
     fun setWotMode(v: RevFlash.Wot) { wotMode.value = v; prefs.putString("wotMode", v.name) }
     val flashOn = MutableStateFlow(prefs.getBoolean("flashOn", true))
     fun setFlashOn(v: Boolean) { flashOn.value = v; prefs.putBoolean("flashOn", v) }
-    fun flashSettings() = RevFlash.Settings(redline.value, wotMode.value, flashOn.value)
+    /** 爆閃轉速；0＝還沒設，跟著紅線（紅線前 200）。 */
+    val flashRpm = MutableStateFlow(prefs.getInt("flashRpm", 0))
+    fun setFlashRpm(v: Int) { val x = v.coerceIn(3000, 12_000); flashRpm.value = x; prefs.putInt("flashRpm", x) }
+    fun flashSettings() = RevFlash.Settings(redline.value, wotMode.value, flashOn.value, flashRpm.value.takeIf { it > 0 })
 
     /** 開 App 就自動連上次的 ECU（預設開）。 */
     var autoConnect: Boolean
