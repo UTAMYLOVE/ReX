@@ -299,10 +299,13 @@ fun mapFill(m: Int?) = Inst.rose
 
 // ---------------------------------------------------------------- C「KOSO」
 
+/** 錶盤裡的一個小數值（標籤、數字、單位、顏色）。 */
+class DialSlot(val label: String, val text: String, val unit: String, val color: Color?)
+
 /** C 風格錶盤。設計座標：寬 412，圓心 (206, 196)，畫布高 [C_H]。 */
 const val C_H = 394f
 
-fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean) {
+fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean, slots: List<DialSlot> = emptyList()) {
     Tone.day = !night
     val cx = 206f; val cy = 196f
     val glowOn = night
@@ -334,8 +337,27 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean) {
             txt(tm, rpmText(d.rpm), cx, 256f, 28f, Tone.readout, FontWeight.ExtraBold, digits = true, anchor = 'c')
             txt(tm, "RPM", cx, 274f, 13f, Tone.sub, anchor = 'c', spacing = .08f)
         }
+        // 內圈上半：兩個小數值（在指針底下，像 GT3 RS 錶裡的小視窗）
+        for (i in 0..1) slots.getOrNull(i)?.let { s ->
+            val x = cx + (if (i == 0) -47f else 47f)
+            txt(tm, s.label, x, 136f, 11f, s.color ?: Tone.sub, anchor = 'c')
+            val w = textWidth(tm, s.text, 23f, FontWeight.ExtraBold, digits = true)
+            val uw = if (s.unit.isEmpty()) 0f else textWidth(tm, s.unit, 10f) + 3f
+            txt(tm, s.text, x - (w + uw) / 2, 162f, 23f, s.color ?: Tone.readout, FontWeight.ExtraBold, digits = true)
+            if (s.unit.isNotEmpty()) txt(tm, s.unit, x - (w + uw) / 2 + w + 3f, 162f, 10f, s.color ?: Tone.sub)
+        }
         needle(cx, cy, RevScale.ang(if (d.connected) d.needleRpm else 0.0), glowOn)
         glass(cx, cy)
+    }
+    // 左下角：第三個小數值（跟右邊 MAP 框對稱）
+    slots.getOrNull(2)?.let { s ->
+        val lx = 16f; val ly = 332f
+        val line = s.color ?: if (night) Inst.rose.copy(alpha = .55f) else Inst.roseLine
+        drawPath(chamPath(lx, ly, 62f, 56f, 10f), if (night) Inst.bg else Color.White)
+        drawPath(chamPath(lx + .75f, ly + .75f, 60.5f, 54.5f, 9.7f), line, style = Stroke(1.5f))
+        txt(tm, s.text, lx + 31f, ly + 32f, 22f, s.color ?: Tone.readout, FontWeight.ExtraBold, digits = true, anchor = 'c')
+        if (s.unit.isNotEmpty()) txt(tm, s.unit, lx + 31f, ly + 48f, 10f, if (night) Inst.beige else Inst.labelDay, anchor = 'c')
+        txt(tm, s.label, lx, 326f, 12f, if (night) Inst.beige else Inst.labelDay)
     }
     // 下巴：速度
     val spd = d.speed?.toString() ?: "--"

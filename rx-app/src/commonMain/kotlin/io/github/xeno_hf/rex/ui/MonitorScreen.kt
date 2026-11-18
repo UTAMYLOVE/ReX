@@ -68,6 +68,7 @@ fun MonitorScreen() {
     val style by repo.monStyle.collectAsState()
     val chosen by repo.monTiles.collectAsState()
     val six by repo.monSix.collectAsState()
+    val dialF by repo.monDial.collectAsState()
     val ride by repo.ride.collectAsState()
     val mapAlert by repo.mapAlert.collectAsState()
     val history by repo.healthHistory.collectAsState()
@@ -101,7 +102,9 @@ fun MonitorScreen() {
     var picking by remember { mutableStateOf<Int?>(null) }
     var mapOpen by remember { mutableStateOf(false) }
     var faultOpen by remember { mutableStateOf(false) }
-    val shown = MonField.withOverride(chosen, live, ride)
+    val shown = MonField.withOverride(six, live, ride)
+    // 錶盤裡的三個小數值（只有 C 風格有位置放）
+    val slotLabels = dialF.map { stringResource(it.label) }
     // 點油圖通知：直接打開油圖視窗
     LaunchedEffect(open) { if (open == Repo.OPEN_MAP) { repo.openRequest.value = null; mapOpen = true } }
     // 上一趟的健檢（太短的不算）
@@ -118,7 +121,7 @@ fun MonitorScreen() {
         val land = maxWidth > maxHeight
         val mw = maxWidth.value
         val dialH = when (style) { MonStyle.A -> A_H; MonStyle.B -> B_H; MonStyle.C, MonStyle.D -> C_H }
-        val lowerDu = 2 * 104f + 8 + 10 + 44 + 8 + 30 + 8 + 24 + (if (mapAlert != null) 48f else 0f) + (if (nudge) 48f else 0f)
+        val lowerDu = 2 * TILE_H + 8 + 10 + 44 + 8 + 30 + 8 + 24 + (if (mapAlert != null) 48f else 0f) + (if (nudge) 48f else 0f)
         // k：每個設計單位幾 dp
         val k = if (land) min((maxWidth.value * 0.48f) / 412f, maxHeight.value / dialH)
         else min(maxWidth.value / 412f, maxHeight.value / (dialH + lowerDu + 20))
@@ -137,7 +140,10 @@ fun MonitorScreen() {
                         when (style) {
                             MonStyle.A -> dialCorsa(tm, d, night)
                             MonStyle.B -> dialPit(tm, d, night)
-                            MonStyle.C, MonStyle.D -> dialKoso(tm, d, night)
+                            MonStyle.C, MonStyle.D -> dialKoso(tm, d, night, dialF.mapIndexed { i, f ->
+                                val v = f.value(live, ride); val lv = f.level(v, live)
+                                DialSlot(slotLabels[i], f.text(v), if (v == null) "" else f.unit, if (lv == Lv.OK) null else pal.of(lv))
+                            })
                         }
                     }
                 }
@@ -148,20 +154,23 @@ fun MonitorScreen() {
                     MonStyle.C, MonStyle.D -> listOf(340f, 316f, 56f, 72f)
                 }
                 Box(Modifier.offset((mx * k).dp, (my * k).dp).size((mw * k).dp, (mh * k).dp).clickable { mapOpen = true })
+                // 長按錶盤裡的小數值：換成別的
+                if (style == MonStyle.C) listOf(listOf(120f, 120f, 78f, 50f), listOf(214f, 120f, 78f, 50f), listOf(10f, 312f, 74f, 80f)).forEachIndexed { i, r ->
+                    Box(Modifier.offset((r[0] * k).dp, (r[1] * k).dp).size((r[2] * k).dp, (r[3] * k).dp).pointerInput(i) { detectTapGestures(onLongPress = { picking = 6 + i }) })
+                }
             }
         }
         val lower: @Composable (Float) -> Unit = { kk ->
             Column(Modifier.width((412 * kk).dp)) {
                 mapAlert?.let { MapAlertBar(it, pal, kk, onOpen = { mapOpen = true }) { repo.ackMapAlert() } }
-                val tileW = (412f - 32 - 8) / 2
                 for (row in 0 until 2) {
                     Row(Modifier.padding(start = (16 * kk).dp, top = ((if (row == 0) 10f else 8f) * kk).dp)) {
-                        for (col in 0 until 2) {
-                            val i = row * 2 + col
+                        for (col in 0 until 3) {
+                            val i = row * 3 + col
                             val f = shown.getOrNull(i) ?: continue
                             val v = f.value(live, ride)
-                            Tile(tm, f, v, f.level(v, live), live, pal, Modifier.size((tileW * kk).dp, (104 * kk).dp)) { picking = i }
-                            if (col == 0) Spacer(Modifier.width((8 * kk).dp))
+                            Tile(tm, f, v, f.level(v, live), live, pal, Modifier.size((TILE_W * kk).dp, (TILE_H * kk).dp)) { picking = i }
+                            if (col < 2) Spacer(Modifier.width((8 * kk).dp))
                         }
                     }
                 }
@@ -203,8 +212,8 @@ fun MonitorScreen() {
     }
 
     picking?.let { i ->
-        FieldPicker(stringResource(R.string.pick_field_title), (if (style == MonStyle.D) six else chosen).getOrNull(i),
-            onPick = { if (style == MonStyle.D) repo.setMonSix(i, it) else repo.setMonTile(i, it); picking = null }, onDismiss = { picking = null })
+        FieldPicker(stringResource(R.string.pick_field_title), if (i >= 6) dialF.getOrNull(i - 6) else six.getOrNull(i),
+            onPick = { if (i >= 6) repo.setMonDial(i - 6, it) else repo.setMonSix(i, it); picking = null }, onDismiss = { picking = null })
     }
     if (mapOpen) MapWindow { mapOpen = false }
     if (faultOpen) FaultWindow { faultOpen = false }
@@ -305,33 +314,35 @@ private fun FaultWindow(onDismiss: () -> Unit) {
     )
 }
 
+private const val TILE_W = (412f - 32 - 16) / 3
+private const val TILE_H = 84f
+
 /** 一格數值：標籤、數值（−10° 斜）、單位；長按換欄位。警示時變色，不閃。 */
 @Composable
 private fun Tile(tm: TextMeasurer, f: MonField, v: Double?, lv: Lv, live: Live?, pal: PagePal, modifier: Modifier, onLongPress: () -> Unit) {
     val label = stringResource(f.label)
     Canvas(modifier.pointerInput(f) { detectTapGestures(onLongPress = { onLongPress() }) }) {
-        val s = size.width / 186f
+        val W = TILE_W; val H = TILE_H
+        val s = size.width / W
         withTransform({ scale(s, s, Offset.Zero) }) {
-            val p = chamPath(0f, 0f, 186f, 104f, 10f)
+            val p = chamPath(0f, 0f, W, H, 9f)
             drawPath(p, pal.tile)
             if (pal.night) {
-                drawLine(Color.White.copy(alpha = .05f), Offset(10f, 1f), Offset(186f, 1f), 2f)
-                drawLine(Color.Black.copy(alpha = .5f), Offset(0f, 103f), Offset(176f, 103f), 2f)
-            } else drawLine(Inst.mocha.copy(alpha = .3f), Offset(0f, 103f), Offset(176f, 103f), 2f)
-            if (lv != Lv.OK) drawPath(chamPath(.75f, .75f, 184.5f, 102.5f, 9.7f), pal.of(lv), style = Stroke(if (lv == Lv.FAULT) 2.5f else 1.5f))
+                drawLine(Color.White.copy(alpha = .05f), Offset(9f, 1f), Offset(W, 1f), 2f)
+                drawLine(Color.Black.copy(alpha = .5f), Offset(0f, H - 1), Offset(W - 9f, H - 1), 2f)
+            } else drawLine(Inst.mocha.copy(alpha = .3f), Offset(0f, H - 1), Offset(W - 9f, H - 1), 2f)
+            if (lv != Lv.OK) drawPath(chamPath(.75f, .75f, W - 1.5f, H - 1.5f, 8.7f), pal.of(lv), style = Stroke(if (lv == Lv.FAULT) 2.5f else 1.5f))
             val lc = if (lv == Lv.OK) pal.label else pal.of(lv)
-            txt(tm, (if (lv != Lv.OK) "◆ " else "") + label, 12f, 28f, 13f, lc)
+            txt(tm, (if (lv != Lv.OK) "◆ " else "") + label, 10f, 24f, 13f, lc)
             val text = f.text(v)
-            val w = txt(tm, text, 12f, 84f, 40f, pal.of(lv), FontWeight.ExtraBold, digits = true, skew = true, spacing = -.02f)
-            val ux = 12f + w + 6f
-            if (f == MonField.AFR && v != null) {
-                val t = live?.v(20)
-                if (t != null && t in 9.0..19.0) {
-                    val dv = kotlin.math.round((v - t) * 10) / 10
-                    val ds = (if (dv > 0) "+" else if (dv < 0) "-" else "±") + Fmt.fixed(kotlin.math.abs(dv), 1)
-                    txt(tm, "Δ$ds", ux, 84f, 13f, pal.label, FontWeight.SemiBold)
-                }
-            } else if (f.unit.isNotEmpty() && v != null) txt(tm, f.unit, ux, 84f, 13f, pal.label, spacing = .06f)
+            // 數字太長（例如 12,000）就縮一點，不要撞到單位
+            val size0 = 32f
+            val w0 = textWidth(tm, text, size0, FontWeight.ExtraBold, digits = true)
+            val unit = if (f.unit.isNotEmpty() && v != null) f.unit else ""
+            val uw = if (unit.isEmpty()) 0f else textWidth(tm, unit, 12f) + 5f
+            val fs = size0 * minOf(1f, (W - 20f - uw) / w0)
+            val w = txt(tm, text, 10f, 68f, fs, pal.of(lv), FontWeight.ExtraBold, digits = true, skew = true, spacing = -.02f)
+            if (unit.isNotEmpty()) txt(tm, unit, 10f + w + 5f, 68f, 12f, pal.label)
         }
     }
 }

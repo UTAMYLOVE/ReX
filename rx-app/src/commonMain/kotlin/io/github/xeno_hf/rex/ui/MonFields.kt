@@ -99,7 +99,9 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
         val DEFAULT_TILES = listOf(TEMP, VOLT, TPS, TRIM)
         val DEFAULT_ROWS = listOf(TEMP, VOLT, IAT)
         /** D 風格主畫面的六格。 */
-        val DEFAULT_SIX = listOf(TEMP, VOLT, TPS, SA, NBO2, TRIM)
+        val DEFAULT_SIX = listOf(TEMP, VOLT, TRIM, SA, NBO2, IAT)
+        /** 錶盤裡的三個小數值：內圈左、內圈右、左下角。 */
+        val DEFAULT_DIAL = listOf(KPA, PW, KML)
 
         /**
          * 使用者選的欄位，加上「有警示就暫時頂替最後一格」：沒放在畫面上的監看項目（水溫、電壓、空燃比、燃油修正、故障碼）
