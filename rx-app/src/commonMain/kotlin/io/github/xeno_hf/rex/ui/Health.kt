@@ -66,7 +66,7 @@ fun HealthScreen(session: SessionDir, onClose: () -> Unit) {
     val repo = LocalRepo.current
     LaunchedEffect(session.dir) {
         // 分析並存檔（健檢清單、AI 都讀這份）
-        runCatching { repo.runHealth(session.dir, notify = false) ?: error("no data") }
+        runCatching { repo.runHealth(session.dir, notify = false) ?: error(repo.healthError ?: "no data") }
             .onSuccess { report = it }.onFailure { error = it.message ?: it.toString() }
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {

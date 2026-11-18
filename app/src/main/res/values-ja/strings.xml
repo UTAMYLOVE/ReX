@@ -211,6 +211,8 @@
     <string name="health_back">戻る</string>
     <string name="health_loading">解析中…</string>
     <string name="health_error">この記録は解析できません：%1$s</string>
+    <string name="health_err_nofile">記録ファイルが見つからないか空です</string>
+    <string name="health_err_empty">この走行ではデータが記録されていません</string>
     <string name="health_score">スコア</string>
     <string name="health_level_ok">良好</string>
     <string name="health_level_info">メモ</string>

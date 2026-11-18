@@ -228,6 +228,8 @@
     <string name="health_back">Back</string>
     <string name="health_loading">Analysing…</string>
     <string name="health_error">Could not analyse this recording: %1$s</string>
+    <string name="health_err_nofile">the recording file is missing or empty</string>
+    <string name="health_err_empty">nothing was recorded on this ride (the bike sent no data)</string>
     <string name="health_score">Score</string>
     <string name="health_level_ok">Good</string>
     <string name="health_level_info">Note</string>

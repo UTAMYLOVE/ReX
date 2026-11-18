@@ -713,10 +713,26 @@ class Repo(val platform: Platform) {
     private fun readAi(d: Path) = Path(d, AI_FILE).let { if (Fs.exists(it)) Fs.readText(it) else null }
 
     /** 分析一趟紀錄、存檔、更新清單；[notify] 時推一則通知。 */
+    /** 上一次健檢失敗的原因（給畫面顯示）；成功就是 null。 */
+    @Volatile var healthError: String? = null
+    private fun readLoga(p: Path, size: Long): Loga =
+        kotlinx.io.files.SystemFileSystem.source(p).buffered().use { rx.session.LogaReader.read(it, size) }
+
     suspend fun runHealth(dir: Path, notify: Boolean): EngineHealth.Report? = withContext(Dispatchers.Default) {
         val loga = Path(dir, "decoded.loga")
-        if (Fs.size(loga) <= 0) return@withContext null
-        val r = runCatching { EngineHealth.analyze(Loga.parse(Fs.readBytes(loga))) }.getOrNull() ?: return@withContext null
+        healthError = null
+        val size = Fs.size(loga)
+        if (size <= 0) { healthError = Strings.get(R.string.health_err_nofile); return@withContext null }
+        // 一行一行讀、只留健檢用得到的欄位：整個檔一次讀進來的話，騎一小時就會記憶體不足
+        val r = try {
+            val data = readLoga(loga, size)
+            if (data.rows.size < 2) { healthError = Strings.get(R.string.health_err_empty); return@withContext null }
+            EngineHealth.analyze(data)
+        } catch (e: Throwable) {
+            healthError = (e::class.simpleName ?: "error") + (e.message?.let { "：${it.take(120)}" } ?: "")
+            log("health failed for ${dir.name}: $healthError")
+            return@withContext null
+        }
         runCatching { Fs.writeText(Path(dir, HealthStore.FILE), HealthStore.encode(r)) }
         healthHistory.value = (listOf(HealthEntry(dir, r, readAi(dir))) + healthHistory.value.filter { it.dir != dir })
             .sortedByDescending { it.dir.name.substringAfter('_') }
@@ -738,10 +754,10 @@ class Repo(val platform: Platform) {
         val p = aiProvider.value
         val key = aiKey(p) ?: error(Strings.get(R.string.ai_no_key, p.label))
         val entry = healthHistory.value.firstOrNull { it.dir == dir }
-        val report = entry?.report ?: runHealth(dir, notify = false) ?: error(Strings.get(R.string.health_error, "no data"))
+        val report = entry?.report ?: runHealth(dir, notify = false) ?: error(Strings.get(R.string.health_error, healthError ?: "no data"))
         // 引擎數據詳細摘要：從原始紀錄重新整理（不含車速、GPS）；解析大檔要在背景執行緒
         val digest = withContext(Dispatchers.Default) {
-            runCatching { rx.session.EngineDigest.build(Loga.parse(Fs.readBytes(Path(dir, "decoded.loga")))) }.getOrNull()
+            runCatching { Path(dir, "decoded.loga").let { rx.session.EngineDigest.build(readLoga(it, Fs.size(it))) } }.getOrNull()
         }
         val user = AiPrompt.user(report, vehicleProfileText(), dir.name, ::findingString, ::metricString, digest)
         val text = client.complete(p, key, aiModel(p), AiPrompt.SYSTEM, user).trim()

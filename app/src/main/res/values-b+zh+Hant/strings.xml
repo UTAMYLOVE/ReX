@@ -211,6 +211,8 @@
     <string name="health_back">返回</string>
     <string name="health_loading">分析中…</string>
     <string name="health_error">這份紀錄無法分析：%1$s</string>
+    <string name="health_err_nofile">找不到這趟的紀錄檔，或檔案是空的</string>
+    <string name="health_err_empty">這趟沒有錄到資料（車子沒有送資料過來）</string>
     <string name="health_score">總分</string>
     <string name="health_level_ok">良好</string>
     <string name="health_level_info">提示</string>
