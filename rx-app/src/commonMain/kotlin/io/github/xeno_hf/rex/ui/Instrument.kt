@@ -37,7 +37,7 @@ import kotlin.math.sin
 object Inst {
     // 六色
     val sakura = Color(0xFFFEDFE1); val beige = Color(0xFFD7C4BB); val rose = Color(0xFFDC9FB4)
-    val white = Color(0xFFFFFFFF); val aqua = Color(0xFFA5DEE4); val mocha = Color(0xFF9E7A7A)
+    val white = Color(0xFFFFFFFF); val peak = Color(0xFF6F8BFF); val aqua = Color(0xFFA5DEE4); val mocha = Color(0xFF9E7A7A)
     // 衍生
     // 夜櫻 A2「粉嫩櫻色環狀」：玫瑰黑紫底、粉色系轉速環；不用黃色，紅色只有一種
     val bg = Color(0xFF200D19); val surf1 = Color(0xFF33192A); val surf2 = Color(0xFF3E1E30); val pod = Color(0xFF3A1B2C)
@@ -205,7 +205,9 @@ fun DrawScope.ledRing(
     d.peakRpm?.let { pk ->
         if (d.peakAlpha > 0.01f) {
             val a = RevScale.ang(pk)
-            drawLine(Color.White.copy(alpha = d.peakAlpha), pt(cx, cy, r1, a), pt(cx, cy, r2, a), strokeWidth = 2f)
+            // 小藍條：剛剛到過的最高轉速，比燈環內外各多出一點，容易看到
+            drawLine(Inst.peak.copy(alpha = d.peakAlpha * .35f), pt(cx, cy, r1 - 5, a), pt(cx, cy, r2 + 5, a), strokeWidth = 8f)
+            drawLine(Inst.peak.copy(alpha = d.peakAlpha), pt(cx, cy, r1 - 5, a), pt(cx, cy, r2 + 5, a), strokeWidth = 3.5f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
         }
     }
 }
@@ -333,9 +335,10 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean, slots: Lis
         drawCircle(Tone.ring, 96f, Offset(cx, cy), style = Stroke(1f))
         ticks(cx, cy, 160f, d.redline)
         numerals(tm, cx, cy, 122f, d.redline)
+        // 沒有指針：轉速看外圈燈環，正中央放大的數位轉速
         if (d.connected) {
-            txt(tm, rpmText(d.rpm), cx, 256f, 28f, Tone.readout, FontWeight.ExtraBold, digits = true, anchor = 'c')
-            txt(tm, "RPM", cx, 274f, 13f, Tone.sub, anchor = 'c', spacing = .08f)
+            txt(tm, rpmText(d.rpm), cx, cy + 20f, 54f, if (d.revFlash) Inst.red else Tone.readout, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c', spacing = -.02f)
+            txt(tm, "RPM", cx, cy + 46f, 14f, Tone.sub, anchor = 'c', spacing = .12f)
         }
         // 內圈上半：兩個小數值（在指針底下，像 GT3 RS 錶裡的小視窗）
         for (i in 0..1) slots.getOrNull(i)?.let { s ->
@@ -346,7 +349,6 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean, slots: Lis
             txt(tm, s.text, x - (w + uw) / 2, 162f, 23f, s.color ?: Tone.readout, FontWeight.ExtraBold, digits = true)
             if (s.unit.isNotEmpty()) txt(tm, s.unit, x - (w + uw) / 2 + w + 3f, 162f, 10f, s.color ?: Tone.sub)
         }
-        needle(cx, cy, RevScale.ang(if (d.connected) d.needleRpm else 0.0), glowOn)
         glass(cx, cy)
     }
     // 左下角：第三個小數值（跟右邊 MAP 框對稱）
@@ -555,6 +557,8 @@ class DialAnimator(var settings: RevFlash.Settings = RevFlash.Settings()) {
     private var lastMs = -1L
     private var peak = 0.0
     private var peakAt = 0L
+    /** 只給預覽圖用：固定顯示一條最高轉速記號。 */
+    companion object { var demoPeak: Double? = null }
 
     fun frame(tMs: Long, rpm: Double?, tps: Double?, speed: Int?, map: Int?, connected: Boolean): DialData {
         flash.settings = settings
@@ -567,7 +571,9 @@ class DialAnimator(var settings: RevFlash.Settings = RevFlash.Settings()) {
         // peak-hold：最高轉速保持 3 秒，再淡出 0.4 秒
         if (r >= peak || tMs - peakAt > 3400) { if (r >= peak || r > 0) { peak = r; peakAt = tMs } }
         val age = tMs - peakAt
-        val alpha = if (peak < 6000) 0f else if (age <= 3000) 1f else max(0f, 1f - (age - 3000) / 400f)
+        // 小藍條：轉速掉下來（比最高低 250 以上）才顯示，不限高轉
+        demoPeak?.let { return DialData(r, needle, speed, map, settings.redline, out, it, 1f, connected) }
+        val alpha = if (peak < 1500 || peak - r < 250) 0f else if (age <= 3000) 1f else max(0f, 1f - (age - 3000) / 400f)
         return DialData(r, needle, speed, map, settings.redline, out, peak.takeIf { it > 0 }, min(1f, alpha), connected)
     }
 }

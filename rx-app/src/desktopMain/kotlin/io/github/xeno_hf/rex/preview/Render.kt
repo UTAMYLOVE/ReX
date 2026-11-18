@@ -91,6 +91,7 @@ fun main(args: Array<String>) {
         println(File(out, "$name.png").path)
     }
     val steady = listOf(20L, 40L, 60L)
+    io.github.xeno_hf.rex.ui.DialAnimator.demoPeak = 7400.0
     val revOn = listOf(1000L, 1050L, 1100L, 1150L) // 100 ms 後進 REV；1150 時在 ON 相位
     for (st in MonStyle.entries) {
         repo.setMonStyle(st)
