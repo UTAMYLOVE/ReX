@@ -98,7 +98,7 @@ internal fun YzDatePlate(folder: String) {
         Box(Modifier.align(Alignment.TopStart).padding(top = 1.dp).size(3.dp).background(Yz.label, androidx.compose.foundation.shape.CircleShape))
         Box(Modifier.align(Alignment.TopEnd).padding(top = 1.dp).size(3.dp).background(Yz.label, androidx.compose.foundation.shape.CircleShape))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(top, color = if (light) Color(0xFF9E7A7A) else Yz.petal, style = digits(12.sp, FontWeight.Bold))
+            Text(top, color = if (light) Color(0xFF1F0E16) else Yz.petal, style = digits(12.sp, FontWeight.Bold))
             Text(big, color = RxColors.text, style = digits(24.sp, FontWeight.ExtraBold))
         }
     }
@@ -131,7 +131,7 @@ internal fun YzPassChip(label: String, level: rx.session.EngineHealth.Level) {
         Modifier.then(if (fill != null) Modifier.background(fill, shape) else Modifier.border(1.dp, RxColors.line, shape)).padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(if (bad) "✕" else "✓", color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else if (RxColors.palette.light) Color(0xFF9E7A7A) else Yz.petal, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Text(if (bad) "✕" else "✓", color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else if (RxColors.palette.light) Color(0xFF1F0E16) else Yz.petal, fontSize = 12.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.width(4.dp))
         Text(label, color = if (fill != null) (if (level == rx.session.EngineHealth.Level.DANGER) Color.White else Yz.ink) else RxColors.text.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
     }

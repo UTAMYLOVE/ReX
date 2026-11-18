@@ -59,21 +59,21 @@ object Yz {
     /** 粉色在深底上還看得出是粉的那一階：✓、日期牌、小標。 */
     val petal = Color(0xFFFFFFFF)
     val aqua = Color(0xFFA5DEE4)
-    val mocha = Color(0xFF9E7A7A)
-    val beige = Color(0xFFD7C4BB)
+    val mocha = Color(0xFF1F0E16)
+    val beige = Color(0xFFFFFFFF)
     /** 頂列與底部頁籤的深色帶（日夜都一樣）。 */
     val band = Color(0xFFDC9FB4)
     /** 粉色、紅色、白色底上的深色字（玫瑰黑紫）。 */
-    val ink = Color(0xFF9E7A7A)
+    val ink = Color(0xFF1F0E16)
     /** 沒選的斜切板外框。 */
-    val slabLine get() = if (RxColors.palette.light) Color(0xFFFEDFE1) else Color(0xFF9E7A7A)
+    val slabLine get() = if (RxColors.palette.light) Color(0xFFFEDFE1) else Color(0xFF1F0E16)
     /** 小標、單位（夜間玫瑰、日間深玫瑰）。 */
-    val label get() = if (RxColors.palette.light) Color(0xFF9E7A7A) else rose
+    val label get() = if (RxColors.palette.light) Color(0xFF1F0E16) else rose
     /** 「注意」：玫瑰粉（不用黃色）。「危險」：紅。 */
     val caution get() = RxColors.warn
     val danger get() = RxColors.danger
     /** 主要框線（夜間白、日間深字色）。 */
-    val keyline get() = if (RxColors.palette.light) Color(0xFF9E7A7A) else Color(0xFFFFFFFF)
+    val keyline get() = if (RxColors.palette.light) Color(0xFF1F0E16) else Color(0xFFFFFFFF)
 }
 
 /** 10° 平行四邊形（左下往右上斜）。 */

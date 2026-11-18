@@ -90,14 +90,14 @@ val Topaz = RxPalette(
 val Nippon = RxPalette(
     id = "nippon", light = true,
     bg = Color(0xFFFEDFE1), bg2 = Color(0xFFFEDFE1),
-    card = Color(0xFFD7C4BB), cardHi = Color(0xFFFEDFE1),
+    card = Color(0xFFFFFFFF), cardHi = Color(0xFFFEDFE1),
     line = Color(0xFFDC9FB4), track = Color(0xFFDC9FB4),
-    text = Color(0xFF9E7A7A), muted = Color(0xFF9E7A7A),
-    brand = Color(0xFF9E7A7A), brand2 = Color(0xFFDC9FB4), brandInk = Color(0xFF9E7A7A), onBrand = Color(0xFFFFFFFF),
+    text = Color(0xFF1F0E16), muted = Color(0xB31F0E16),
+    brand = Color(0xFF1F0E16), brand2 = Color(0xFFDC9FB4), brandInk = Color(0xFF1F0E16), onBrand = Color(0xFFFFFFFF),
     partner = Color(0xFFA5DEE4),
-    accent = Color(0xFF9E7A7A),
-    warn = Color(0xFFA5DEE4), danger = Color(0xFF9E7A7A),
-    traces = listOf(Color(0xFF9E7A7A), Color(0xFFA5DEE4), Color(0xFFDC9FB4), Color(0xFFFFFFFF), Color(0xFF9E7A7A), Color(0xFFA5DEE4)),
+    accent = Color(0xFF1F0E16),
+    warn = Color(0xFFA5DEE4), danger = Color(0xFF1F0E16),
+    traces = listOf(Color(0xFF1F0E16), Color(0xFFA5DEE4), Color(0xFFDC9FB4), Color(0xFF1F0E16), Color(0xFFA5DEE4), Color(0xFFDC9FB4)),
 )
 
 /**
@@ -107,14 +107,14 @@ val Nippon = RxPalette(
 val Yozakura = RxPalette(
     id = "yozakura", light = true,
     bg = Color(0xFFFEDFE1), bg2 = Color(0xFFFEDFE1),
-    card = Color(0xFFD7C4BB), cardHi = Color(0xFFFEDFE1),
+    card = Color(0xFFFFFFFF), cardHi = Color(0xFFFEDFE1),
     line = Color(0xFFDC9FB4), track = Color(0xFFDC9FB4),
-    text = Color(0xFF9E7A7A), muted = Color(0xFF9E7A7A),
-    brand = Color(0xFF9E7A7A), brand2 = Color(0xFFDC9FB4), brandInk = Color(0xFF9E7A7A), onBrand = Color(0xFFFFFFFF),
+    text = Color(0xFF1F0E16), muted = Color(0xB31F0E16),
+    brand = Color(0xFF1F0E16), brand2 = Color(0xFFDC9FB4), brandInk = Color(0xFF1F0E16), onBrand = Color(0xFFFFFFFF),
     partner = Color(0xFFA5DEE4),
-    accent = Color(0xFF9E7A7A),
-    warn = Color(0xFFA5DEE4), danger = Color(0xFF9E7A7A),
-    traces = listOf(Color(0xFF9E7A7A), Color(0xFFA5DEE4), Color(0xFFDC9FB4), Color(0xFFFFFFFF), Color(0xFF9E7A7A), Color(0xFFA5DEE4)),
+    accent = Color(0xFF1F0E16),
+    warn = Color(0xFFA5DEE4), danger = Color(0xFF1F0E16),
+    traces = listOf(Color(0xFF1F0E16), Color(0xFFA5DEE4), Color(0xFFDC9FB4), Color(0xFF1F0E16), Color(0xFFA5DEE4), Color(0xFFDC9FB4)),
 )
 
 val Emerald = RxPalette(

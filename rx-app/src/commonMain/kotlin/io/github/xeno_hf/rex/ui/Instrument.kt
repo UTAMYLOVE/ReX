@@ -36,15 +36,15 @@ import kotlin.math.sin
  */
 object Inst {
     // 六色
-    val sakura = Color(0xFFFEDFE1); val beige = Color(0xFFD7C4BB); val rose = Color(0xFFDC9FB4)
-    val white = Color(0xFFFFFFFF); val peak = Color(0xFFA5DEE4); val aqua = Color(0xFFA5DEE4); val mocha = Color(0xFF9E7A7A)
+    val sakura = Color(0xFFFEDFE1); val beige = Color(0xFFFFFFFF); val rose = Color(0xFFDC9FB4)
+    val white = Color(0xFFFFFFFF); val peak = Color(0xFFA5DEE4); val aqua = Color(0xFFA5DEE4); val mocha = Color(0xFF1F0E16)
     // 衍生
     // 夜櫻 A2「粉嫩櫻色環狀」：玫瑰黑紫底、粉色系轉速環；不用黃色，紅色只有一種
     val bg = Color(0xFFDC9FB4); val surf1 = Color(0xFFDC9FB4); val surf2 = Color(0xFFDC9FB4); val pod = Color(0xFFDC9FB4)
-    val ink = Color(0xFF9E7A7A); val labelDay = Color(0xFF9E7A7A); val red = Color(0xFF9E7A7A); val redDay = Color(0xFF9E7A7A)
-    val roseLine = Color(0xFF9E7A7A); val aquaLine = Color(0xFF9E7A7A); val channel = Color(0xFFDC9FB4)
+    val ink = Color(0xFF1F0E16); val labelDay = Color(0xFF1F0E16); val red = Color(0xFF1F0E16); val redDay = Color(0xFF1F0E16)
+    val roseLine = Color(0xFF1F0E16); val aquaLine = Color(0xFF1F0E16); val channel = Color(0xFFDC9FB4)
     val rimTop = Color(0xFFDC9FB4); val rimBottom = Color(0xFFDC9FB4)
-    val petal = Color(0xFFFFFFFF); val hotRose = Color(0xFF9E7A7A); val band = Color(0xFFDC9FB4)
+    val petal = Color(0xFFFFFFFF); val hotRose = Color(0xFF1F0E16); val band = Color(0xFFDC9FB4)
     val segOff = sakura.copy(alpha = 0.55f); val ghost = aqua.copy(alpha = 0.45f)
 
     const val T10 = 0.17632698f // tan 10°
@@ -60,8 +60,8 @@ data class PagePal(
     val chipStroke: Color, val rec: Color, val caution: Color, val fault: Color,
 ) {
     companion object {
-        val NIGHT = PagePal(true, Inst.bg, Inst.sakura, Inst.rose, Inst.surf1, Inst.petal, Inst.petal.copy(alpha = .13f), Color(0xFF9E7A7A), Inst.sakura, Inst.rose, Inst.red)
-        val DAY = PagePal(false, Inst.sakura, Color(0xFF9E7A7A), Inst.labelDay, Color.White, Inst.roseLine, Color(0xFFFEDFE1).copy(alpha = .55f), Color(0xFFFEDFE1), Inst.roseLine, Inst.rose, Inst.redDay)
+        val NIGHT = PagePal(true, Inst.bg, Inst.sakura, Inst.rose, Inst.surf1, Inst.petal, Inst.petal.copy(alpha = .13f), Color(0xFF1F0E16), Inst.sakura, Inst.rose, Inst.red)
+        val DAY = PagePal(false, Inst.sakura, Color(0xFF1F0E16), Inst.labelDay, Color.White, Inst.roseLine, Color(0xFFFEDFE1).copy(alpha = .55f), Color(0xFFFEDFE1), Inst.roseLine, Inst.rose, Inst.redDay)
     }
     fun of(lv: Lv) = when (lv) { Lv.OK -> num; Lv.CAUTION -> caution; Lv.FAULT -> fault }
 }
@@ -72,15 +72,15 @@ data class PagePal(
  */
 private object Tone {
     var day = false
-    val major get() = if (day) Color(0xFF9E7A7A) else Inst.sakura
-    val mid get() = if (day) Color(0xFF9E7A7A) else Inst.beige.copy(alpha = .7f)
-    val minor get() = if (day) Color(0xFF9E7A7A) else Inst.mocha
-    val numeral get() = if (day) Color(0xFF9E7A7A) else Inst.beige
-    val readout get() = if (day) Color(0xFF9E7A7A) else Inst.sakura
+    val major get() = if (day) Color(0xFF1F0E16) else Inst.sakura
+    val mid get() = if (day) Color(0xFF1F0E16) else Inst.beige.copy(alpha = .7f)
+    val minor get() = if (day) Color(0xFF1F0E16) else Inst.mocha
+    val numeral get() = if (day) Color(0xFF1F0E16) else Inst.beige
+    val readout get() = if (day) Color(0xFF1F0E16) else Inst.sakura
     val sub get() = if (day) Inst.labelDay else Inst.beige
     val needle get() = if (day) Inst.roseLine else Inst.rose
     val tip get() = if (day) Inst.red else Color.White
-    val ring get() = if (day) Color(0xFF9E7A7A).copy(alpha = .35f) else Inst.beige.copy(alpha = .25f)
+    val ring get() = if (day) Color(0xFF1F0E16).copy(alpha = .35f) else Inst.beige.copy(alpha = .25f)
 }
 
 /** 轉速 → 29 段分段刻度（0–5k 每段 1,000；5–10k 每段 250；10–12k 每段 500），起點 135°，270°。 */
@@ -365,7 +365,7 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean, slots: Lis
     // 白天：車速放在白色液晶窗裡
     if (Tone.day) {
         drawPath(chamPath(108f, 320f, 198f, 62f, 8f), Color.White)
-        drawPath(chamPath(108.5f, 320.5f, 197f, 61f, 7.8f), Color(0xFF9E7A7A).copy(alpha = .18f), style = Stroke(1f))
+        drawPath(chamPath(108.5f, 320.5f, 197f, 61f, 7.8f), Color(0xFF1F0E16).copy(alpha = .18f), style = Stroke(1f))
     }
     txt(tm, spd, 246f - w, 380f, 88f, Tone.readout, FontWeight.ExtraBold, digits = true, skew = true, spacing = -.02f)
     txt(tm, "km/h", 252f, 380f, 13f, Tone.sub, spacing = .06f)
@@ -374,8 +374,8 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean, slots: Lis
     if (Tone.day) {
         drawPath(chamPath(x + 4f, y + 4f, 56f, 56f, 10f), Inst.roseLine)
         drawPath(chamPath(x, y, 56f, 56f, 10f), Color.White)
-        drawPath(chamPath(x + .75f, y + .75f, 54.5f, 54.5f, 9.7f), Color(0xFF9E7A7A), style = Stroke(1.5f))
-        txt(tm, d.map?.toString() ?: "–", x + 28f, 380f, 60f, Color(0xFF9E7A7A), FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
+        drawPath(chamPath(x + .75f, y + .75f, 54.5f, 54.5f, 9.7f), Color(0xFF1F0E16), style = Stroke(1.5f))
+        txt(tm, d.map?.toString() ?: "–", x + 28f, 380f, 60f, Color(0xFF1F0E16), FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
     } else {
         drawPath(chamPath(x, y, 56f, 56f, 10f), Inst.bg)
         drawPath(chamPath(x + .75f, y + .75f, 54.5f, 54.5f, 9.7f), Inst.rose, style = Stroke(1.5f))
@@ -492,7 +492,7 @@ fun DrawScope.dialPit(tm: TextMeasurer, d: DialData, night: Boolean) {
     // MAP：平行四邊形徽章，放在錶底缺口
     val bx = 206f - 44; val by = 390f
     drawPath(paraPath(bx, by, 88f, 40f), if (Tone.day) Color.White else Inst.bg)
-    drawPath(paraPath(bx, by, 88f, 40f), if (Tone.day) Color(0xFF9E7A7A) else Inst.rose, style = Stroke(1.5f))
+    drawPath(paraPath(bx, by, 88f, 40f), if (Tone.day) Color(0xFF1F0E16) else Inst.rose, style = Stroke(1.5f))
     drawPath(paraPath(bx + 50, by + 5, 32f, 30f), mapFill(d.map))
     txt(tm, "MAP", bx + 14, by + 26, 13f, Tone.sub, spacing = .08f)
     txt(tm, d.map?.toString() ?: "–", bx + 66, by + 32, 28f, Inst.bg, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')

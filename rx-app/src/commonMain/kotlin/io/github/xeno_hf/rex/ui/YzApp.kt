@@ -217,7 +217,7 @@ private fun YzTopBar(onStatus: () -> Unit) {
 private fun YzTabBar(tab: YzTab, onSelect: (YzTab) -> Unit) {
     Column(Modifier.fillMaxWidth().background(Yz.band)
         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF9E7A7A)))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF1F0E16)))
         Row(Modifier.fillMaxWidth().height(60.dp), verticalAlignment = Alignment.CenterVertically) {
             YzTab.entries.forEach { t ->
                 val sel = tab == t

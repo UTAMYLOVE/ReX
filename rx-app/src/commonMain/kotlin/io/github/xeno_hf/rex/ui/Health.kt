@@ -154,7 +154,7 @@ fun HealthTrend(onOpen: (kotlinx.io.files.Path) -> Unit) {
                         color = if (low) Yz.ink else if (light) RxColors.text else Yz.pastel,
                         modifier = if (low) Modifier.background(Yz.rose, SlantShape).padding(horizontal = 5.dp) else Modifier,
                     )
-                    val lit = if (low) Yz.rose else if (light) Color(0xFF9E7A7A) else if (latest) Yz.pastel else Yz.petal
+                    val lit = if (low) Yz.rose else if (light) Color(0xFF1F0E16) else if (latest) Yz.pastel else Yz.petal
                     val ghost = (if (light) Color(0xFFFEDFE1) else Yz.petal).copy(alpha = if (light) .45f else .13f)
                     Canvas(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 7.dp, vertical = 5.dp)) {
                         val n = 14; val gap = 2.dp.toPx(); val bh = (size.height - gap * (n - 1)) / n
