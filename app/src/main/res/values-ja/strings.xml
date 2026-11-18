@@ -206,7 +206,7 @@
     <string name="at_confirm_title">Auto Tune をオンにしますか？</string>
     <string name="at_confirm_body">オンにすると、走行中に ECU が広帯域 O2 センサーのデータで燃料を自動補正します。オンにしますか？</string>
     <string name="at_confirm_ok">オンにする</string>
-    <string name="theme_nippon">桜色（ライト）</string>
+    <string name="theme_nippon">桜色</string>
     <string name="health_title">エンジン診断</string>
     <string name="health_back">戻る</string>
     <string name="health_loading">解析中…</string>
@@ -334,7 +334,7 @@
     <string name="style_c">C KOSO</string>
     <string name="tab_monitor">モニター</string>
     <string name="theme_system_sakura">桜色（システムに従う）</string>
-    <string name="theme_yozakura">夜桜（ダーク）</string>
+    <string name="theme_yozakura">赤・白・黒</string>
     <string name="trend_title">エンジン診断の推移（%1$d 回）</string>
     <string name="wot">全開</string>
     <string name="app_name">夜桜</string>

@@ -93,7 +93,7 @@ internal fun YzDatePlate(folder: String) {
         big = "$h:$mi"
     }
     val light = RxColors.palette.light
-    Box(Modifier.background(if (light) Color.White else Color(0xFFDC9FB4)).border(1.5.dp, Yz.keyline.copy(alpha = 0.85f)).padding(horizontal = 12.dp, vertical = 4.dp)) {
+    Box(Modifier.background(if (light) Color.White else Inst.surf1).border(1.5.dp, Yz.keyline.copy(alpha = 0.85f)).padding(horizontal = 12.dp, vertical = 4.dp)) {
         // 車牌兩顆螺絲
         Box(Modifier.align(Alignment.TopStart).padding(top = 1.dp).size(3.dp).background(Yz.label, androidx.compose.foundation.shape.CircleShape))
         Box(Modifier.align(Alignment.TopEnd).padding(top = 1.dp).size(3.dp).background(Yz.label, androidx.compose.foundation.shape.CircleShape))
@@ -321,8 +321,12 @@ fun YzSettings(onEditConnection: () -> Unit, onStatus: () -> Unit) {
         YzMonitorSettings()
         YzOverlaySettings()
         YzAiSettings()
-        // 外觀只有一套（六色淺底），不用選
-        YzSection(5, stringResource(R.string.set_about)) {
+        YzSection(5, stringResource(R.string.set_look)) {
+            val theme by repo.theme.collectAsState()
+            val cur = if (theme == ThemeChoice.YOZAKURA) ThemeChoice.YOZAKURA else ThemeChoice.NIPPON
+            YzSegmented(listOf(ThemeChoice.NIPPON, ThemeChoice.YOZAKURA).map { it to stringResource(it.label) }, cur, { repo.setTheme(it) })
+        }
+        YzSection(6, stringResource(R.string.set_about)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 YzDecal(scale = 0.8f)
                 Spacer(Modifier.width(14.dp))

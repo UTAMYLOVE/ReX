@@ -55,20 +55,20 @@ object Yz {
     val T10 = tan(10.0 * kotlin.math.PI / 180).toFloat()
     /** 櫻粉（六色之一）：字標、重點。 */
     val pastel = Color(0xFFFFFFFF)
-    val rose = Color(0xFFDC9FB4)
+    val rose get() = Inst.rose
     /** 粉色在深底上還看得出是粉的那一階：✓、日期牌、小標。 */
     val petal = Color(0xFFFFFFFF)
-    val aqua = Color(0xFFA5DEE4)
-    val mocha = Color(0xFF1F0E16)
-    val beige = Color(0xFFFFFFFF)
+    val aqua get() = Inst.aqua
+    val mocha get() = Inst.mocha
+    val beige get() = Inst.beige
     /** 頂列與底部頁籤的深色帶（日夜都一樣）。 */
-    val band = Color(0xFFDC9FB4)
+    val band get() = Inst.band
     /** 粉色、紅色、白色底上的深色字（玫瑰黑紫）。 */
-    val ink = Color(0xFF1F0E16)
+    val ink get() = Inst.ink
     /** 沒選的斜切板外框。 */
-    val slabLine get() = if (RxColors.palette.light) Color(0xFFFEDFE1) else Color(0xFF1F0E16)
+    val slabLine get() = if (RxColors.palette.light) Color(0xFFFEDFE1) else Color(0xFF4A4A50)
     /** 小標、單位（夜間玫瑰、日間深玫瑰）。 */
-    val label get() = if (RxColors.palette.light) Color(0xFF1F0E16) else rose
+    val label get() = if (RxColors.palette.light) Color(0xFF1F0E16) else Color(0xFFC8C8CC)
     /** 「注意」：玫瑰粉（不用黃色）。「危險」：紅。 */
     val caution get() = RxColors.warn
     val danger get() = RxColors.danger
@@ -179,7 +179,7 @@ fun YzHatch(color: Color, modifier: Modifier) {
 @Composable
 fun YzStateChip(text: String, color: Color, dot: Boolean, hatch: Boolean, modifier: Modifier = Modifier, compact: Boolean = false) {
     Row(
-        modifier.clip(YzChipShape).background(Color(0xFFDC9FB4), YzChipShape)
+        modifier.clip(YzChipShape).background(Inst.surf1, YzChipShape)
             .border(1.5.dp, color.copy(alpha = 0.85f), YzChipShape).heightIn(min = if (compact) 26.dp else 32.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

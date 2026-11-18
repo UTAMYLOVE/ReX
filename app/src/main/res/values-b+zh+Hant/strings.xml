@@ -206,7 +206,7 @@
     <string name="at_confirm_title">開啟 Auto Tune？</string>
     <string name="at_confirm_body">開啟後 ECU 會依寬域含氧感知器的數據，在騎乘中自動修正油量。確定要開啟嗎？</string>
     <string name="at_confirm_ok">開啟</string>
-    <string name="theme_nippon">櫻色（淺）</string>
+    <string name="theme_nippon">櫻色</string>
     <string name="health_title">引擎健檢</string>
     <string name="health_back">返回</string>
     <string name="health_loading">分析中…</string>
@@ -334,7 +334,7 @@
     <string name="style_c">C 改裝錶</string>
     <string name="tab_monitor">監控</string>
     <string name="theme_system_sakura">櫻色（跟隨系統）</string>
-    <string name="theme_yozakura">夜櫻（暗）</string>
+    <string name="theme_yozakura">紅白黑戰鬥</string>
     <string name="trend_title">引擎健檢趨勢（%1$d 趟）</string>
     <string name="wot">全油門</string>
     <string name="app_name">夜櫻</string>

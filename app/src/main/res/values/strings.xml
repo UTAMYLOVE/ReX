@@ -223,7 +223,7 @@
     <string name="at_confirm_title">Turn on Auto Tune?</string>
     <string name="at_confirm_body">Auto Tune lets the ECU correct fueling from the wideband O2 sensor while you ride. Turn it on?</string>
     <string name="at_confirm_ok">Turn on</string>
-    <string name="theme_nippon">Sakura (light)</string>
+    <string name="theme_nippon">Sakura</string>
     <string name="health_title">Engine check</string>
     <string name="health_back">Back</string>
     <string name="health_loading">Analysing…</string>
@@ -351,7 +351,7 @@
     <string name="style_c">C KOSO</string>
     <string name="tab_monitor">Monitor</string>
     <string name="theme_system_sakura">Sakura (follow system)</string>
-    <string name="theme_yozakura">Yozakura (dark)</string>
+    <string name="theme_yozakura">Red / white / black</string>
     <string name="trend_title">Engine check trend (%1$d rides)</string>
     <string name="wot">Full throttle</string>
     <!-- 夜櫻 -->

@@ -35,20 +35,41 @@ import kotlin.math.sin
  * 錶面日夜都是深色（重機儀表的做法：淺色錶面加淺色燈在太陽下看不見），頁面才跟著日夜換。
  */
 object Inst {
-    // 六色
-    val sakura = Color(0xFFFEDFE1); val beige = Color(0xFFFFFFFF); val rose = Color(0xFFDC9FB4)
-    val white = Color(0xFFFFFFFF); val peak = Color(0xFFA5DEE4); val aqua = Color(0xFFA5DEE4); val mocha = Color(0xFF1F0E16)
-    // 衍生
-    // 夜櫻 A2「粉嫩櫻色環狀」：玫瑰黑紫底、粉色系轉速環；不用黃色，紅色只有一種
-    val bg = Color(0xFFDC9FB4); val surf1 = Color(0xFFDC9FB4); val surf2 = Color(0xFFDC9FB4); val pod = Color(0xFFDC9FB4)
-    val ink = Color(0xFF1F0E16); val labelDay = Color(0xFF1F0E16); val red = Color(0xFF1F0E16); val redDay = Color(0xFF1F0E16)
-    val roseLine = Color(0xFF1F0E16); val aquaLine = Color(0xFF1F0E16); val channel = Color(0xFFDC9FB4)
-    val rimTop = Color(0xFFDC9FB4); val rimBottom = Color(0xFFDC9FB4)
-    val petal = Color(0xFFFFFFFF); val hotRose = Color(0xFF1F0E16); val band = Color(0xFFDC9FB4)
-    val segOff = sakura.copy(alpha = 0.55f); val ghost = aqua.copy(alpha = 0.45f)
+    /** 紅白黑戰鬥配色（深色底）。其他時候是櫻色（淺色底）。 */
+    val battle get() = RxColors.palette.id == "battle"
+    private val B get() = battle
+    private val ROSE = Color(0xFFDC9FB4); private val INK = Color(0xFF1F0E16); private val RED = Color(0xFFE8112D)
+    // 櫻色：櫻粉、玫瑰粉、白、水藍＋深色字。戰鬥：黑底、白字、紅色重點。
+    val sakura get() = if (B) Color.White else Color(0xFFFEDFE1)
+    val beige get() = if (B) Color(0xFFC8C8CC) else Color.White
+    val rose get() = if (B) RED else ROSE
+    val white = Color(0xFFFFFFFF)
+    val aqua get() = if (B) Color.White else Color(0xFFA5DEE4)
+    val peak get() = aqua
+    val mocha get() = if (B) Color(0xFF6E6E74) else INK
+    val bg get() = if (B) Color(0xFF0A0A0B) else ROSE
+    val surf1 get() = if (B) Color(0xFF18181B) else ROSE
+    val surf2 get() = if (B) Color(0xFF242428) else ROSE
+    val pod get() = if (B) Color(0xFF141416) else ROSE
+    val ink get() = if (B) Color(0xFF0A0A0B) else INK
+    val labelDay = INK; val redDay = INK; val roseLine = INK; val aquaLine = INK
+    val red get() = if (B) RED else INK
+    val channel get() = if (B) Color(0xFF000000) else ROSE
+    val rimTop get() = if (B) Color(0xFF6A6A70) else ROSE
+    val rimBottom get() = if (B) Color(0xFF0A0A0B) else ROSE
+    val petal = Color(0xFFFFFFFF)
+    val hotRose get() = if (B) Color(0xFFFF5A5A) else INK
+    val band get() = if (B) Color(0xFF000000) else ROSE
+    val segOff get() = if (B) Color.White.copy(alpha = 0.10f) else Color(0xFFFEDFE1).copy(alpha = 0.55f)
+    val ghost get() = if (B) RED.copy(alpha = 0.30f) else Color(0xFFA5DEE4).copy(alpha = 0.45f)
+    /** 懸浮小儀表的底板和字。 */
+    val plate get() = if (B) Color(0xFF18181B) else Color.White
+    val plateText get() = if (B) Color.White else INK
+    /** 爆閃方式：戰鬥配色固定紅色明滅。 */
+    val mode get() = if (B) 2 else flashMode
+    val flashRed get() = RED
 
     var flashMode = 0
-    val flashRed = Color(0xFFE5484D)
     const val T10 = 0.17632698f // tan 10°
     const val SKEW = -0.17632698f // 文字 −10° 斜（Android/Skia 的負值＝往右斜）
     const val SEGS = 29
@@ -62,8 +83,8 @@ data class PagePal(
     val chipStroke: Color, val rec: Color, val caution: Color, val fault: Color,
 ) {
     companion object {
-        val NIGHT = PagePal(true, Inst.bg, Inst.sakura, Inst.rose, Inst.surf1, Inst.petal, Inst.petal.copy(alpha = .13f), Color(0xFF1F0E16), Inst.sakura, Inst.rose, Inst.red)
-        val DAY = PagePal(false, Inst.sakura, Color(0xFF1F0E16), Inst.labelDay, Color.White, Inst.roseLine, Color(0xFFFEDFE1).copy(alpha = .55f), Color(0xFFFEDFE1), Inst.roseLine, Inst.rose, Inst.redDay)
+        val NIGHT get() = PagePal(true, Inst.bg, Inst.sakura, Inst.beige, Inst.surf1, Inst.rose, Color.White.copy(alpha = .12f), Color(0xFF3A3A40), Inst.sakura, Inst.hotRose, Inst.red)
+        val DAY get() = PagePal(false, Inst.sakura, Color(0xFF1F0E16), Inst.labelDay, Color.White, Inst.roseLine, Color(0xFFFEDFE1).copy(alpha = .55f), Color(0xFFFEDFE1), Inst.roseLine, Inst.rose, Inst.redDay)
     }
     fun of(lv: Lv) = when (lv) { Lv.OK -> num; Lv.CAUTION -> caution; Lv.FAULT -> fault }
 }
@@ -94,7 +115,11 @@ object RevScale {
     fun lit(rpm: Double): Int { var n = 0; for (i in 1..Inst.SEGS) if (rpm > segLow(i) || (i == 1 && rpm > 0)) n = i; return n }
 
     /** 色階門檻依紅線 R 計算。 */
-    fun color(rpmLow: Double, redline: Int): Color = when {
+    fun color(rpmLow: Double, redline: Int): Color = if (Inst.battle) when {
+        rpmLow < redline - 5000 -> Color.White.copy(alpha = .7f)
+        rpmLow < redline - 2000 -> Color.White
+        else -> Inst.red
+    } else when {
         rpmLow < redline - 5000 -> Inst.mocha.copy(alpha = .75f)
         rpmLow < redline - 500 -> Inst.mocha
         else -> Inst.aqua
@@ -180,12 +205,12 @@ fun DrawScope.ledRing(
     val lit = if (d.connected) RevScale.lit(d.rpm) else 0
     val flashing = d.revFlash || d.wotFlash
     // 爆閃配色：0 白／水藍、1 深色／水藍、2 紅色明滅、3 深色／水藍＋整個錶面一起閃
-    val flashCol = when (Inst.flashMode) {
+    val flashCol = when (Inst.mode) {
         0 -> if (d.flash.dimmed) Inst.white else Inst.aqua
         2 -> Inst.flashRed
         else -> if (d.flash.dimmed) Inst.ink else Inst.aqua
     }
-    val dim = if (Inst.flashMode == 2 && d.flash.dimmed) 0.15f else 1f
+    val dim = if (Inst.mode == 2 && d.flash.dimmed) 0.15f else 1f
     val gapDeg = gapPx?.let { it / ((r1 + r2) / 2) * 180f / PI.toFloat() } ?: Inst.GAP
     for (n in 1..Inst.SEGS) {
         val a1 = 135 + (n - 1) * Inst.PITCH + gapDeg / 2
@@ -337,13 +362,13 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean, slots: Lis
     drawLine(Brush.horizontalGradient(listOf(Inst.beige, Inst.mocha, Inst.beige), startX = 95f, endX = 317f), Offset(95.1f, 313f), Offset(316.9f, 313f), 1.5f)
     clipPath(faceClip) {
         face(cx, cy, 160f)
-        if (Inst.flashMode == 3 && d.revFlash && !d.flash.dimmed) drawCircle(Inst.aqua, 160f, Offset(cx, cy))
+        if (Inst.mode == 3 && d.revFlash && !d.flash.dimmed) drawCircle(Inst.aqua, 160f, Offset(cx, cy))
         drawCircle(Tone.ring, 96f, Offset(cx, cy), style = Stroke(1f))
         ticks(cx, cy, 160f, d.redline)
         numerals(tm, cx, cy, 122f, d.redline)
         // 沒有指針：轉速看外圈燈環，正中央放大的數位轉速
         if (d.connected) {
-            txt(tm, rpmText(d.rpm), cx, cy + 20f, 54f, if (d.revFlash && Inst.flashMode == 2) Inst.flashRed else Tone.readout, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c', spacing = -.02f)
+            txt(tm, rpmText(d.rpm), cx, cy + 20f, 54f, if (d.revFlash && Inst.mode == 2) Inst.flashRed else Tone.readout, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c', spacing = -.02f)
             txt(tm, "RPM", cx, cy + 46f, 14f, Tone.sub, anchor = 'c', spacing = .12f)
         }
         // 內圈上半：兩個小數值（在指針底下，像 GT3 RS 錶裡的小視窗）
@@ -388,7 +413,7 @@ fun DrawScope.dialKoso(tm: TextMeasurer, d: DialData, night: Boolean, slots: Lis
         drawPath(chamPath(x, y, 56f, 56f, 10f), Inst.bg)
         drawPath(chamPath(x + .75f, y + .75f, 54.5f, 54.5f, 9.7f), Inst.rose, style = Stroke(1.5f))
         drawPath(chamPath(x + 3.5f, y + 3.5f, 49f, 49f, 8.5f), mapFill(d.map))
-        txt(tm, d.map?.toString() ?: "–", x + 28f, 380f, 60f, Inst.bg, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
+        txt(tm, d.map?.toString() ?: "–", x + 28f, 380f, 60f, Inst.ink, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
     }
     txt(tm, "MAP", 396f, 326f, 13f, if (night) Inst.beige else Inst.labelDay, anchor = 'r', spacing = .08f)
 }
@@ -434,8 +459,8 @@ fun DrawScope.dialCorsa(tm: TextMeasurer, d: DialData, night: Boolean) {
     drawPath(hex, Inst.rose, style = Stroke(1.5f))
     val inner = Path().apply { moveTo(bx + bp + 1, by + 3.5f); lineTo(bx + bw - bp - 1, by + 3.5f); lineTo(bx + bw - 4, by + bh / 2); lineTo(bx + bw - bp - 1, by + bh - 3.5f); lineTo(bx + bp + 1, by + bh - 3.5f); lineTo(bx + 4, by + bh / 2); close() }
     drawPath(inner, mapFill(d.map))
-    txt(tm, "MAP", bx + 13, by + bh / 2 + 4.5f, 12f, Inst.bg, FontWeight.Bold, spacing = .06f)
-    txt(tm, d.map?.toString() ?: "–", bx + bw - 19, by + bh / 2 + 10, 28f, Inst.bg, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
+    txt(tm, "MAP", bx + 13, by + bh / 2 + 4.5f, 12f, Inst.ink, FontWeight.Bold, spacing = .06f)
+    txt(tm, d.map?.toString() ?: "–", bx + bw - 19, by + bh / 2 + 10, 28f, Inst.ink, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
 }
 
 // ---------------------------------------------------------------- B「PIT」
@@ -503,7 +528,7 @@ fun DrawScope.dialPit(tm: TextMeasurer, d: DialData, night: Boolean) {
     drawPath(paraPath(bx, by, 88f, 40f), if (Tone.day) Color(0xFF1F0E16) else Inst.rose, style = Stroke(1.5f))
     drawPath(paraPath(bx + 50, by + 5, 32f, 30f), mapFill(d.map))
     txt(tm, "MAP", bx + 14, by + 26, 13f, Tone.sub, spacing = .08f)
-    txt(tm, d.map?.toString() ?: "–", bx + 66, by + 32, 28f, Inst.bg, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
+    txt(tm, d.map?.toString() ?: "–", bx + 66, by + 32, 28f, Inst.ink, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
 }
 
 // ---------------------------------------------------------------- 懸浮小儀表（側翼式，212×128）
@@ -517,23 +542,23 @@ const val WING_H = 128f
 fun DrawScope.wingGauge(tm: TextMeasurer, d: DialData, rows: List<WingRow>) {
     Tone.day = false
     val worst = rows.maxOfOrNull { it.lv.ordinal }?.let { Lv.entries[it] } ?: Lv.OK
-    val edge = when (worst) { Lv.FAULT -> Inst.red; Lv.CAUTION -> Inst.rose; Lv.OK -> Inst.mocha.copy(alpha = .45f) }
+    val edge = when (worst) { Lv.FAULT -> Inst.plateText; Lv.CAUTION -> Inst.aqua; Lv.OK -> Inst.plateText.copy(alpha = .45f) }
     val X = 0f; val Y = 6f; val W = 120f; val H = 116f
     // 陰影
     translate(0f, 2f) { drawPath(chamPath(X, Y, W, H, 14f), Color.Black.copy(alpha = .25f)); drawCircle(Color.Black.copy(alpha = .25f), 65f, Offset(148f, 64f)) }
-    drawPath(chamPath(X, Y, W, H, 14f), Brush.verticalGradient(listOf(Color(0xFFDC9FB4), Inst.bg), startY = Y, endY = Y + H))
+    drawPath(chamPath(X, Y, W, H, 14f), Inst.plate)
     drawPath(chamPath(X + .75f, Y + .75f, W - 1.5f, H - 1.5f, 13.7f), edge, style = Stroke(if (worst == Lv.FAULT) 2.5f else 1.5f))
     rows.take(3).forEachIndexed { i, r ->
         val top = Y + 8 + i * 35
-        val c = when (r.lv) { Lv.OK -> Inst.sakura; Lv.CAUTION -> Inst.rose; Lv.FAULT -> Inst.red }
-        if (r.lv != Lv.OK) drawRect(c, Offset(6f, top + 3), Size(3f, 28f))
-        txt(tm, r.label, 15f, top + 11, 11f, if (r.lv == Lv.OK) Inst.beige else c, alpha = if (r.lv == Lv.OK) .85f else 1f)
+        val c = when (r.lv) { Lv.OK -> Inst.plateText; Lv.CAUTION -> Inst.plateText; Lv.FAULT -> Inst.plateText }
+        if (r.lv != Lv.OK) drawRect(if (r.lv == Lv.FAULT) Inst.plateText else Inst.aqua, Offset(6f, top + 3), Size(3f, 28f))
+        txt(tm, (if (r.lv != Lv.OK) "◆ " else "") + r.label, 15f, top + 11, 11f, Inst.plateText, alpha = if (r.lv == Lv.OK) .8f else 1f)
         val w = txt(tm, r.value, 15f, top + 30, 21f, c, FontWeight.ExtraBold, digits = true, skew = true)
-        if (r.unit.isNotEmpty()) txt(tm, r.unit, 15f + w + 3, top + 30, 10.5f, Inst.beige, alpha = .85f)
+        if (r.unit.isNotEmpty()) txt(tm, r.unit, 15f + w + 3, top + 30, 10.5f, Inst.plateText, alpha = .8f)
         if (i < 2) drawLine(Inst.mocha.copy(alpha = .28f), Offset(15f, top + 35.5f), Offset(72f, top + 35.5f), 1f)
     }
     // 圓錶
-    drawCircle(Color(0xFF0B0809), 67f, Offset(148f, 64f))
+    drawCircle(Color(0xFF0A0A0B), 67f, Offset(148f, 64f))
     translate(84f, 0f) { miniDial(tm, d, worst == Lv.FAULT) }
 }
 
@@ -542,18 +567,18 @@ fun DrawScope.miniDial(tm: TextMeasurer, d: DialData, fault: Boolean) {
     Tone.day = false
     val cx = 64f; val cy = 64f
     drawCircle(Brush.verticalGradient(listOf(Inst.rimTop, Inst.rimBottom)), 64f, Offset(cx, cy))
-    drawCircle(Brush.radialGradient(listOf(Inst.surf2, Inst.bg), center = Offset(64f, 48f), radius = 76f), 62f, Offset(cx, cy))
+    drawCircle(Inst.plate, 62f, Offset(cx, cy))
     ledRing(d, cx, cy, 51f, 60f, glowOn = false, cap = true, gapPx = 55.5f * Inst.PITCH * PI.toFloat() / 180f - 6.8f)
     for (k in listOf(5000.0, 10000.0)) { val a = RevScale.ang(k); drawLine(Inst.beige.copy(alpha = .4f), pt(cx, cy, 46f, a), pt(cx, cy, 49f, a), 2f) }
     drawCircle(if (fault) Inst.red else Inst.mocha, 63f, Offset(cx, cy), style = Stroke(if (fault) 3.5f else 1.5f))
-    if (d.connected) txt(tm, rpmText(d.rpm), cx, 36f, 13f, Inst.beige, FontWeight.Bold, digits = true, anchor = 'c')
-    txt(tm, d.speed?.toString() ?: "--", cx, 81f, 44f, Inst.sakura, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
+    if (d.connected) txt(tm, rpmText(d.rpm), cx, 36f, 13f, Inst.plateText, FontWeight.Bold, digits = true, anchor = 'c')
+    txt(tm, d.speed?.toString() ?: "--", cx, 81f, 44f, Inst.plateText, FontWeight.ExtraBold, digits = true, skew = true, anchor = 'c')
     drawPath(paraPath(44f, 98f, 40f, 20f), mapFill(d.map))
     val mw = textWidth(tm, "M", 10f, FontWeight.ExtraBold, digits = true)
     val nw = textWidth(tm, d.map?.toString() ?: "–", 18f, FontWeight.ExtraBold, digits = true)
     val x0 = 64f - (mw + 1.8f + nw) / 2
-    txt(tm, "M", x0, 114f, 10f, Inst.bg, FontWeight.ExtraBold, digits = true)
-    txt(tm, d.map?.toString() ?: "–", x0 + mw + 1.8f, 114.2f, 18f, Inst.bg, FontWeight.ExtraBold, digits = true)
+    txt(tm, "M", x0, 114f, 10f, if (Inst.battle) Color.White else Inst.ink, FontWeight.ExtraBold, digits = true)
+    txt(tm, d.map?.toString() ?: "–", x0 + mw + 1.8f, 114.2f, 18f, if (Inst.battle) Color.White else Inst.ink, FontWeight.ExtraBold, digits = true)
 }
 
 /** 依目前的狀態算出要給儀表畫的一幀資料（主畫面與懸浮窗共用）。 */

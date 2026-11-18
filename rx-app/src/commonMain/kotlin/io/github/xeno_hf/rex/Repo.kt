@@ -100,7 +100,7 @@ class Repo(val platform: Platform) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val prefs = platform.kv
     // 夜櫻：舊設定一次性調成固定值（要在下面各設定讀 prefs 之前跑）
-    init { Yozakura.migrate(prefs); Yozakura.migrate2(prefs) }
+    init { Yozakura.migrate(prefs); Yozakura.migrate2(prefs); Yozakura.migrate3(prefs) }
     val secrets get() = platform.secrets
 
     val registry = MutableStateFlow<ChannelRegistry?>(null)

@@ -232,7 +232,7 @@ private fun MapWindow(onDismiss: () -> Unit) {
                     Box(
                         Modifier.size(84.dp, 56.dp).background(now?.let { mapFill(it) } ?: RxColors.track, androidx.compose.foundation.shape.RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center,
-                    ) { Text(now?.let { "MAP $it" } ?: "—", style = digits(22.sp, FontWeight.ExtraBold), color = if (now != null) Inst.bg else RxColors.muted) }
+                    ) { Text(now?.let { "MAP $it" } ?: "—", style = digits(22.sp, FontWeight.ExtraBold), color = if (now != null) Inst.ink else RxColors.muted) }
                     if (now == null) Text(stringResource(R.string.map_win_unknown), color = RxColors.muted, fontSize = 12.sp, modifier = Modifier.padding(start = 10.dp))
                 }
                 Spacer(Modifier.height(14.dp))
@@ -243,10 +243,10 @@ private fun MapWindow(onDismiss: () -> Unit) {
                     Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         (1..3).forEach { m ->
                             Box(
-                                Modifier.size(64.dp, 52.dp).background(if (now == m) mapFill(m) else RxColors.track, androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+                                Modifier.size(64.dp, 52.dp).background(if (now == m) (if (Inst.battle) Inst.rose else Inst.ink) else RxColors.track, androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
                                     .clickable { repo.setMap(m); unlocked = false; repo.relock() },
                                 contentAlignment = Alignment.Center,
-                            ) { Text("$m", style = digits(26.sp, FontWeight.ExtraBold), color = if (now == m) Inst.bg else RxColors.text) }
+                            ) { Text("$m", style = digits(26.sp, FontWeight.ExtraBold), color = if (now == m) Color.White else RxColors.text) }
                         }
                     }
                 }

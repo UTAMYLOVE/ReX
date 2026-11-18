@@ -221,7 +221,7 @@ private fun YzTabBar(tab: YzTab, onSelect: (YzTab) -> Unit) {
         Row(Modifier.fillMaxWidth().height(60.dp), verticalAlignment = Alignment.CenterVertically) {
             YzTab.entries.forEach { t ->
                 val sel = tab == t
-                val tint = if (sel) Yz.pastel else Color(0xFFFEDFE1)
+                val tint = if (sel) Yz.pastel else if (RxColors.palette.light) Color(0xFFFEDFE1) else Color(0xFF8A8A90)
                 Box(Modifier.weight(1f).fillMaxHeight().clickable(interactionSource = null, indication = null) { onSelect(t) }) {
                     if (sel) {
                         // 選中：10° 斜板由上往下淡出的玫瑰色＋上緣一條櫻粉
@@ -242,7 +242,7 @@ private fun YzTabBar(tab: YzTab, onSelect: (YzTab) -> Unit) {
 
 @Composable
 private fun YzRailItem(t: YzTab, selected: Boolean, onClick: () -> Unit) {
-    val c = if (selected) Yz.pastel else Color(0xFFFEDFE1)
+    val c = if (selected) Yz.pastel else if (RxColors.palette.light) Color(0xFFFEDFE1) else Color(0xFF8A8A90)
     Box(Modifier.width(64.dp).clickable(onClick = onClick).padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
         if (selected) Box(Modifier.align(Alignment.CenterStart).size(4.dp, 36.dp).background(Yz.pastel, SlantShape))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {

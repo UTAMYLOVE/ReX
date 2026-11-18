@@ -105,16 +105,16 @@ val Nippon = RxPalette(
  * 和監控畫面的夜間錶盤同一組顏色。
  */
 val Yozakura = RxPalette(
-    id = "yozakura", light = true,
-    bg = Color(0xFFFEDFE1), bg2 = Color(0xFFFEDFE1),
-    card = Color(0xFFFFFFFF), cardHi = Color(0xFFFEDFE1),
-    line = Color(0xFFDC9FB4), track = Color(0xFFDC9FB4),
-    text = Color(0xFF1F0E16), muted = Color(0xB31F0E16),
-    brand = Color(0xFF1F0E16), brand2 = Color(0xFFDC9FB4), brandInk = Color(0xFF1F0E16), onBrand = Color(0xFFFFFFFF),
-    partner = Color(0xFFA5DEE4),
-    accent = Color(0xFF1F0E16),
-    warn = Color(0xFFA5DEE4), danger = Color(0xFF1F0E16),
-    traces = listOf(Color(0xFF1F0E16), Color(0xFFA5DEE4), Color(0xFFDC9FB4), Color(0xFF1F0E16), Color(0xFFA5DEE4), Color(0xFFDC9FB4)),
+    id = "battle", light = false,
+    bg = Color(0xFF0A0A0B), bg2 = Color(0xFF0A0A0B),
+    card = Color(0xFF18181B), cardHi = Color(0xFF242428),
+    line = Color(0xFF3A3A40), track = Color(0xFF2A2A2E),
+    text = Color(0xFFFFFFFF), muted = Color(0xFFB8B8BE),
+    brand = Color(0xFFE8112D), brand2 = Color(0xFFFF5A5A), brandInk = Color(0xFFFF5A5A), onBrand = Color(0xFFFFFFFF),
+    partner = Color(0xFFFFFFFF),
+    accent = Color(0xFFE8112D),
+    warn = Color(0xFFFF5A5A), danger = Color(0xFFE8112D),
+    traces = listOf(Color(0xFFFFFFFF), Color(0xFFE8112D), Color(0xFFB8B8BE), Color(0xFFFF5A5A), Color(0xFF6E6E74), Color(0xFFFFFFFF)),
 )
 
 val Emerald = RxPalette(
@@ -188,7 +188,7 @@ fun RxTheme(choice: ThemeChoice, content: @Composable () -> Unit) {
         ThemeChoice.EMERALD -> Emerald
         ThemeChoice.RUBY -> Ruby
         ThemeChoice.TOPAZ -> Topaz
-        ThemeChoice.SYSTEM -> if (isSystemInDarkTheme()) Yozakura else Nippon
+        ThemeChoice.SYSTEM -> Nippon
     }
     RxColors.palette = p
     DigitsHolder.family = FontFamily(

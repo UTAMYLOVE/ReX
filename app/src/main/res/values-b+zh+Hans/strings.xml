@@ -206,7 +206,7 @@
     <string name="at_confirm_title">开启 Auto Tune？</string>
     <string name="at_confirm_body">开启后 ECU 会根据宽域氧传感器的数据，在骑行中自动修正油量。确定要开启吗？</string>
     <string name="at_confirm_ok">开启</string>
-    <string name="theme_nippon">樱色（浅）</string>
+    <string name="theme_nippon">樱色</string>
     <string name="health_title">引擎体检</string>
     <string name="health_back">返回</string>
     <string name="health_loading">分析中…</string>
@@ -334,7 +334,7 @@
     <string name="style_c">C 改装表</string>
     <string name="tab_monitor">监控</string>
     <string name="theme_system_sakura">樱色（跟随系统）</string>
-    <string name="theme_yozakura">夜樱（暗）</string>
+    <string name="theme_yozakura">红白黑战斗</string>
     <string name="trend_title">引擎健检趋势（%1$d 趟）</string>
     <string name="wot">全油门</string>
     <string name="app_name">夜樱</string>

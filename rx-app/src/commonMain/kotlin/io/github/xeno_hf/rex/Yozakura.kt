@@ -42,4 +42,11 @@ object Yozakura {
         swap(TILES_KEY, "tps"); swap("ovRows", "iat")
         kv.putBoolean("yozakura.v2", true)
     }
+
+    /** 第三次調整：原本的「夜櫻（暗）」現在是「紅白黑戰鬥」，舊設定先回到櫻色，要用戰鬥配色再自己選。 */
+    fun migrate3(kv: KeyValueStore) {
+        if (kv.getBoolean("yozakura.v3", false)) return
+        if (kv.getString("theme", null) == "YOZAKURA") kv.putString("theme", "NIPPON")
+        kv.putBoolean("yozakura.v3", true)
+    }
 }
