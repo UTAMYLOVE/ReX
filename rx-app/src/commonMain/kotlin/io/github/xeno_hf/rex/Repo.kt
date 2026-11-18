@@ -249,6 +249,11 @@ class Repo(val platform: Platform) {
     }
     /** D 風格的六格。 */
     val monSix = MutableStateFlow(MonField.parse(prefs.getString("monSix", null), MonField.DEFAULT_SIX).let { if (it.size == 6) it else MonField.DEFAULT_SIX })
+    val monEight = MutableStateFlow(MonField.parse(prefs.getString("monEight", null), MonField.DEFAULT_EIGHT).let { if (it.size == 8) it else MonField.DEFAULT_EIGHT })
+    fun setMonEight(index: Int, f: MonField) {
+        val l = monEight.value.toMutableList().also { it[index] = f }
+        monEight.value = l; prefs.putString("monEight", l.joinToString(",") { it.id })
+    }
     val monDial = MutableStateFlow(MonField.parse(prefs.getString("monDial", null), MonField.DEFAULT_DIAL).let { if (it.size == 3) it else MonField.DEFAULT_DIAL })
     fun setMonDial(index: Int, f: MonField) {
         val l = monDial.value.toMutableList().also { it[index] = f }

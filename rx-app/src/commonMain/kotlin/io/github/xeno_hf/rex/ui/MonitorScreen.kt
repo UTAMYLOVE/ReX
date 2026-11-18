@@ -68,7 +68,7 @@ fun MonitorScreen() {
     val style by repo.monStyle.collectAsState()
     val chosen by repo.monTiles.collectAsState()
     val six by repo.monSix.collectAsState()
-    val dialF by repo.monDial.collectAsState()
+    val eight by repo.monEight.collectAsState()
     val ride by repo.ride.collectAsState()
     val mapAlert by repo.mapAlert.collectAsState()
     val history by repo.healthHistory.collectAsState()
@@ -102,9 +102,7 @@ fun MonitorScreen() {
     var picking by remember { mutableStateOf<Int?>(null) }
     var mapOpen by remember { mutableStateOf(false) }
     var faultOpen by remember { mutableStateOf(false) }
-    val shown = MonField.withOverride(six, live, ride)
-    // 錶盤裡的三個小數值（只有 C 風格有位置放）
-    val slotLabels = dialF.map { stringResource(it.label) }
+    val shown = MonField.withOverride(eight, live, ride)
     // 點油圖通知：直接打開油圖視窗
     LaunchedEffect(open) { if (open == Repo.OPEN_MAP) { repo.openRequest.value = null; mapOpen = true } }
     // 上一趟的健檢（太短的不算）
@@ -121,7 +119,7 @@ fun MonitorScreen() {
         val land = maxWidth > maxHeight
         val mw = maxWidth.value
         val dialH = when (style) { MonStyle.A -> A_H; MonStyle.B -> B_H; MonStyle.C, MonStyle.D -> C_H }
-        val lowerDu = 2 * TILE_H + 8 + 10 + 44 + 8 + 30 + 8 + 24 + (if (mapAlert != null) 48f else 0f) + (if (nudge) 48f else 0f)
+        val lowerDu = 4 * ROW_H + 14 + 8 + 30 + 8 + 24 + (if (mapAlert != null) 48f else 0f) + (if (nudge) 48f else 0f)
         // k：每個設計單位幾 dp
         val k = if (land) min((maxWidth.value * 0.48f) / 412f, maxHeight.value / dialH)
         else min(maxWidth.value / 412f, maxHeight.value / (dialH + lowerDu + 20))
@@ -140,10 +138,7 @@ fun MonitorScreen() {
                         when (style) {
                             MonStyle.A -> dialCorsa(tm, d, night)
                             MonStyle.B -> dialPit(tm, d, night)
-                            MonStyle.C, MonStyle.D -> dialKoso(tm, d, night, dialF.mapIndexed { i, f ->
-                                val v = f.value(live, ride); val lv = f.level(v, live)
-                                DialSlot(slotLabels[i], f.text(v), if (v == null) "" else f.unit, if (lv == Lv.OK) null else pal.of(lv))
-                            })
+                            MonStyle.C, MonStyle.D -> dialKoso(tm, d, night)
                         }
                     }
                 }
@@ -154,29 +149,22 @@ fun MonitorScreen() {
                     MonStyle.C, MonStyle.D -> listOf(340f, 316f, 56f, 72f)
                 }
                 Box(Modifier.offset((mx * k).dp, (my * k).dp).size((mw * k).dp, (mh * k).dp).clickable { mapOpen = true })
-                // 長按錶盤裡的小數值：換成別的
-                if (style == MonStyle.C) listOf(listOf(120f, 120f, 78f, 50f), listOf(214f, 120f, 78f, 50f), listOf(10f, 312f, 74f, 80f)).forEachIndexed { i, r ->
-                    Box(Modifier.offset((r[0] * k).dp, (r[1] * k).dp).size((r[2] * k).dp, (r[3] * k).dp).pointerInput(i) { detectTapGestures(onLongPress = { picking = 6 + i }) })
-                }
             }
         }
         val lower: @Composable (Float) -> Unit = { kk ->
             Column(Modifier.width((412 * kk).dp)) {
                 mapAlert?.let { MapAlertBar(it, pal, kk, onOpen = { mapOpen = true }) { repo.ackMapAlert() } }
-                for (row in 0 until 2) {
-                    Row(Modifier.padding(start = (16 * kk).dp, top = ((if (row == 0) 10f else 8f) * kk).dp)) {
-                        for (col in 0 until 3) {
-                            val i = row * 3 + col
+                // 八列數據：左右各四，每列＝名稱＋數字＋一條細量表
+                for (row in 0 until 4) {
+                    Row(Modifier.padding(start = (20 * kk).dp, top = ((if (row == 0) 14f else 0f) * kk).dp)) {
+                        for (col in 0 until 2) {
+                            val i = col * 4 + row
                             val f = shown.getOrNull(i) ?: continue
                             val v = f.value(live, ride)
-                            Tile(tm, f, v, f.level(v, live), live, pal, Modifier.size((TILE_W * kk).dp, (TILE_H * kk).dp)) { picking = i }
-                            if (col < 2) Spacer(Modifier.width((8 * kk).dp))
+                            DataRow(tm, f, v, f.level(v, live), pal, col == 1, Modifier.size((ROW_W * kk).dp, (ROW_H * kk).dp)) { picking = i }
+                            if (col == 0) Spacer(Modifier.width((20 * kk).dp))
                         }
                     }
-                }
-                Canvas(Modifier.padding(top = (8 * kk).dp).size((412 * kk).dp, (44 * kk).dp)) {
-                    val sx = size.width / 412f
-                    withTransform({ scale(sx, sx, Offset.Zero) }) { tpsRow(tm, live, pal) }
                 }
                 Canvas(Modifier.padding(top = (8 * kk).dp).size((412 * kk).dp, (30 * kk).dp).clickable { faultOpen = true }) {
                     val sx = size.width / 412f
@@ -212,8 +200,8 @@ fun MonitorScreen() {
     }
 
     picking?.let { i ->
-        FieldPicker(stringResource(R.string.pick_field_title), if (i >= 6) dialF.getOrNull(i - 6) else six.getOrNull(i),
-            onPick = { if (i >= 6) repo.setMonDial(i - 6, it) else repo.setMonSix(i, it); picking = null }, onDismiss = { picking = null })
+        FieldPicker(stringResource(R.string.pick_field_title), eight.getOrNull(i),
+            onPick = { repo.setMonEight(i, it); picking = null }, onDismiss = { picking = null })
     }
     if (mapOpen) MapWindow { mapOpen = false }
     if (faultOpen) FaultWindow { faultOpen = false }
@@ -312,6 +300,51 @@ private fun FaultWindow(onDismiss: () -> Unit) {
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
     )
+}
+
+private const val ROW_W = (412f - 40 - 20) / 2
+private const val ROW_H = 56f
+
+/** 一列數據：名稱＋數字（−10° 斜）＋細量表（刻度、紅區、亮點）。右欄左右對調。長按換欄位；警示時變色，不閃。 */
+@Composable
+private fun DataRow(tm: TextMeasurer, f: MonField, v: Double?, lv: Lv, pal: PagePal, mirror: Boolean, modifier: Modifier, onLongPress: () -> Unit) {
+    val label = stringResource(f.label)
+    Canvas(modifier.pointerInput(f) { detectTapGestures(onLongPress = { onLongPress() }) }) {
+        val W = ROW_W; val s = size.width / W
+        withTransform({ scale(s, s, Offset.Zero) }) {
+            val col = pal.of(lv)
+            val lc = if (lv == Lv.OK) pal.label else col
+            val text = f.text(v)
+            val unit = if (f.unit.isNotEmpty() && v != null) f.unit else ""
+            val lw = textWidth(tm, label, 13f) + 8f
+            val uw = if (unit.isEmpty()) 0f else textWidth(tm, unit, 12f) + 4f
+            val w0 = textWidth(tm, text, 27f, FontWeight.ExtraBold, digits = true)
+            val fs = 27f * minOf(1f, (W - lw - uw) / w0)
+            val w = w0 * fs / 27f
+            if (mirror) {
+                txt(tm, text, 0f, 24f, fs, col, FontWeight.ExtraBold, digits = true, skew = true, spacing = -.02f)
+                if (unit.isNotEmpty()) txt(tm, unit, w + 4f, 24f, 12f, lc)
+                txt(tm, (if (lv != Lv.OK) "◆ " else "") + label, W, 22f, 13f, lc, anchor = 'r')
+            } else {
+                txt(tm, (if (lv != Lv.OK) "◆ " else "") + label, 0f, 22f, 13f, lc)
+                txt(tm, text, W - uw - w, 24f, fs, col, FontWeight.ExtraBold, digits = true, skew = true, spacing = -.02f)
+                if (unit.isNotEmpty()) txt(tm, unit, W, 24f, 12f, lc, anchor = 'r')
+            }
+            // 細量表
+            val by = 36f
+            val track = if (pal.night) Color.White.copy(alpha = .10f) else Inst.mocha.copy(alpha = .30f)
+            drawLine(track, Offset(0f, by), Offset(W, by), 3f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            f.redFrom?.let { drawLine(Inst.red.copy(alpha = .6f), Offset(W * f.frac(it), by), Offset(W, by), 3f, cap = androidx.compose.ui.graphics.StrokeCap.Round) }
+            for (k in 0..4) drawLine(pal.label.copy(alpha = .6f), Offset(W * k / 4f, by + 4f), Offset(W * k / 4f, by + 7f), 1f)
+            if (v != null) {
+                val x = W * f.frac(v)
+                val fill = if (lv != Lv.OK) col else if (pal.night) Inst.rose else Inst.roseLine
+                drawLine(fill, Offset(0f, by), Offset(x, by), 3f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                drawCircle(fill.copy(alpha = .35f), 6f, Offset(x, by))
+                drawCircle(if (pal.night) Color.White else Inst.ink, 3f, Offset(x, by))
+            }
+        }
+    }
 }
 
 private const val TILE_W = (412f - 32 - 16) / 3

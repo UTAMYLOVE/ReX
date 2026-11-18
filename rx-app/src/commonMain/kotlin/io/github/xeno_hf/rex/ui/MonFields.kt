@@ -57,6 +57,16 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
         KML_NOW -> l?.v(52)
     }
 
+    /** 細量表的範圍（最小、最大）；[redFrom] 之後畫成紅區（沒有就不畫）。 */
+    val range: Pair<Double, Double> get() = when (this) {
+        TEMP -> 40.0 to 130.0; VOLT -> 10.0 to 16.0; AFR -> 10.0 to 18.0; TRIM -> -25.0 to 25.0; FAULTS -> 0.0 to 5.0
+        TPS, DUTY -> 0.0 to 100.0; SA -> 0.0 to 50.0; IAT -> 0.0 to 80.0; KPA -> 0.0 to 105.0; PW -> 0.0 to 15.0
+        KML -> 0.0 to 60.0; KML_NOW -> 0.0 to 80.0; TRIP -> 0.0 to 100.0; MAX_RPM -> 0.0 to 12_000.0; NBO2 -> 0.0 to 1000.0
+        HP, TQ -> 0.0 to 30.0
+    }
+    val redFrom: Double? get() = when (this) { TEMP -> EngineHealth.T_ENG_WARN; DUTY -> 85.0; else -> null }
+    fun frac(v: Double) = ((v - range.first) / (range.second - range.first)).coerceIn(0.0, 1.0).toFloat()
+
     /** 顯示用字串（不含單位）。 */
     fun text(v: Double?): String = when {
         v == null -> "—"
@@ -100,6 +110,8 @@ enum class MonField(val id: String, val label: Int, val unit: String, val decima
         val DEFAULT_ROWS = listOf(TEMP, VOLT, IAT)
         /** D 風格主畫面的六格。 */
         val DEFAULT_SIX = listOf(TEMP, VOLT, TRIM, SA, NBO2, IAT)
+        /** 主畫面錶盤下面的八列數據（左右各四）。 */
+        val DEFAULT_EIGHT = listOf(TEMP, VOLT, IAT, TRIM, TPS, NBO2, SA, KPA)
         /** 錶盤裡的三個小數值：內圈左、內圈右、左下角。 */
         val DEFAULT_DIAL = listOf(KPA, PW, KML)
 
