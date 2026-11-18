@@ -110,7 +110,7 @@ fun main(args: Array<String>) {
                 File(dir, "%03d.png".format(i)).writeBytes(img.encodeToData(EncodedImageFormat.PNG)!!.bytes) }
             scene.close()
         }
-        io.github.xeno_hf.rex.ui.Inst.flashMode = 1
+        io.github.xeno_hf.rex.ui.Inst.flashMode = 0
         return
     }
     val steady = listOf(20L, 40L, 60L)

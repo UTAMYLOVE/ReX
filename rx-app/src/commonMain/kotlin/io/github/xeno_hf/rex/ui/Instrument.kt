@@ -47,7 +47,7 @@ object Inst {
     val petal = Color(0xFFFFFFFF); val hotRose = Color(0xFF1F0E16); val band = Color(0xFFDC9FB4)
     val segOff = sakura.copy(alpha = 0.55f); val ghost = aqua.copy(alpha = 0.45f)
 
-    var flashMode = 1
+    var flashMode = 0
     val flashRed = Color(0xFFE5484D)
     const val T10 = 0.17632698f // tan 10°
     const val SKEW = -0.17632698f // 文字 −10° 斜（Android/Skia 的負值＝往右斜）
