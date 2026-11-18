@@ -567,12 +567,12 @@ class DialAnimator(var settings: RevFlash.Settings = RevFlash.Settings()) {
         lastMs = tMs
         // 2,500 rpm 以下不平滑（看得到怠速游動）；以上臨界阻尼 τ≈70 ms
         needle = if (r < 2500 || dt == 0.0) r else needle + (r - needle) * (1 - kotlin.math.exp(-dt / 70.0))
-        // 小藍條：最近 3 秒內的最高轉速（滑動視窗），連線中一直顯示
+        // 小藍條：最近 3 秒內的最高轉速（滑動視窗）。轉速正在最高點時不畫（跟燈環前端重疊），掉下來才看得到
         while (win.isNotEmpty() && tMs - win.first().first > 3000) win.removeFirst()
         while (win.isNotEmpty() && win.last().second <= r) win.removeLast()   // 單調佇列：前面永遠是視窗內最大
         win.addLast(tMs to r)
         val peak = demoPeak ?: win.first().second
-        return DialData(r, needle, speed, map, settings.redline, out, peak.takeIf { it > 0 }, if (connected && peak > 0) 1f else 0f, connected)
+        return DialData(r, needle, speed, map, settings.redline, out, peak.takeIf { it > 0 }, if (connected && (demoPeak != null || peak - r >= 150)) 1f else 0f, connected)
     }
 }
 
