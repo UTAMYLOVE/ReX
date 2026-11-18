@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import rx.defs.BuiltinDefs
 import rx.defs.ChannelRegistry
@@ -715,8 +716,10 @@ class Repo(val platform: Platform) {
     /** 分析一趟紀錄、存檔、更新清單；[notify] 時推一則通知。 */
     /** 上一次健檢失敗的原因（給畫面顯示）；成功就是 null。 */
     @Volatile var healthError: String? = null
-    private fun readLoga(p: Path, size: Long): Loga =
-        kotlinx.io.files.SystemFileSystem.source(p).buffered().use { rx.session.LogaReader.read(it, size) }
+    private fun readLoga(p: Path, size: Long): Loga {
+        val src = kotlinx.io.files.SystemFileSystem.source(p).buffered()
+        return try { rx.session.LogaReader.read(src, size) } finally { src.close() }
+    }
 
     suspend fun runHealth(dir: Path, notify: Boolean): EngineHealth.Report? = withContext(Dispatchers.Default) {
         val loga = Path(dir, "decoded.loga")
